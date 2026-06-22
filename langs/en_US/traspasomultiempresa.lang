@@ -1,0 +1,42 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModuleTraspasoMultiempresaName'
+ModuleTraspasoMultiempresaName = TraspasoMultiempresa
+# Module description 'ModuleTraspasoMultiempresaDesc'
+ModuleTraspasoMultiempresaDesc = TraspasoMultiempresa description
+
+#
+# Admin page
+#
+TraspasoMultiempresaSetup = TraspasoMultiempresa setup
+Settings = Settings
+TraspasoMultiempresaSetupPage = TraspasoMultiempresa setup page
+NewSection=New section
+TRASPASOMULTIEMPRESA_MYPARAM1 = My param 1
+TRASPASOMULTIEMPRESA_MYPARAM1Tooltip = My param 1 tooltip
+TRASPASOMULTIEMPRESA_MYPARAM2=My param 2
+TRASPASOMULTIEMPRESA_MYPARAM2Tooltip=My param 2 tooltip
+
+
+#
+# About page
+#
+About = About
+TraspasoMultiempresaAbout = About TraspasoMultiempresa
+TraspasoMultiempresaAboutPage = TraspasoMultiempresa about page
+
+#
+# Sample page
+#
+TraspasoMultiempresaArea = Home TraspasoMultiempresa
+MyPageName = My page name
+
+#
+# Sample widget
+#
+MyWidget = My widget
+MyWidgetDescription = My widget description
