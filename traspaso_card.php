@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Version: 1.0.4
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -236,24 +236,7 @@ if (empty($reshook)) {
 
     // ACTION ADDLINE (FAA)
     //if ($action == 'addline' && $user->rights->traspasomultiempresa->crear) { // Ajusta el permiso a tu módulo
-    if ($action == 'addline') {
-        $error = 0;
-    
-        $idprod = GETPOST('idprod', 'int');
-        $qty    = GETPOST('qty', 'int');
-    
-        if (empty($idprod) || $idprod <= 0) {
-            setEventMessages($langs->trans("ErrorFieldRequired", $langs->trans("Producto")), null, 'errors');
-            $error++;
-        }
-        if (empty($qty) || $qty <= 0) {
-            setEventMessages($langs->trans("ErrorFieldRequired", $langs->trans("Cantidad")), null, 'errors');
-            $error++;
-        }
-    
-        // ... (Tus líneas iniciales donde capturas el idprod y qty) ...
-
-        if (!$error) {
+            if (!$error) {
             $db->begin();
         
             // 1. Calculamos la referencia y los datos obligatorios
@@ -264,10 +247,27 @@ if (empty($reshook)) {
             $id_producto   = (int) $idprod;
             $cantidad_prod = (double) $qty;
             $estatus_ini   = 0; // Borrador
+
+            // 1.5. Cargar el producto nativo de Dolibarr para extraer su Costo Promedio (PMP)
+            require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
+            $productStatic = new Product($db);
+            $productStatic->fetch($id_producto);
+
+            $pmp_costo = (double) $productStatic->pmp;
+            // Si el producto no tiene compras previas, usamos el cost_price como respaldo
+            if (empty($pmp_costo) || $pmp_costo <= 0) {
+                $pmp_costo = (double) $productStatic->cost_price;
+            }
+            if (empty($pmp_costo)) {
+                $pmp_costo = 0.0;
+            }
+
+            // Calcular el Importe total de la partida
+            $importe_total = (double) ($cantidad_prod * $pmp_costo);
         
-            // 2. Armamos el Query manual directo a tu tabla real
+            // 2. Armamos el Query manual directo a tu tabla real (incluyendo pmp y amount)
             $sql_insert = "INSERT INTO ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline ";
-            $sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty) ";
+            $sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty, pmp, amount) ";
             $sql_insert.= "VALUES (";
             $sql_insert.= "'".$db->escape($partida_ref)."', ";
             $sql_insert.= "'".$db->escape($fecha_actual)."', ";
@@ -275,34 +275,52 @@ if (empty($reshook)) {
             $sql_insert.= "".$estatus_ini.", ";
             $sql_insert.= "".$id_traspaso.", ";
             $sql_insert.= "".$id_producto.", ";
-            $sql_insert.= "".$cantidad_prod."";
+            $sql_insert.= "".$cantidad_prod.", ";
+            $sql_insert.= "".$pmp_costo.", ";
+            $sql_insert.= "".$importe_total."";
             $sql_insert.= ")";
         
-            // 3. Ejecutamos la consulta en la Base de Datos
+            // 3. Ejecutamos la consulta en la Base de Datos para la línea hija
             $res_query = $db->query($sql_insert);
         
             if ($res_query) {
-                $db->commit();
                 
-                // Limpiamos los campos del formulario POST
-                $_POST['idprod'] = '';
-                $_POST['qty'] = '1';
-                
-                // Redireccionamos limpiamente para recargar la pantalla y pintar la nueva línea
-                header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
-                exit;
+                // 3.5. Actualizar la tabla PADRE (amount = total acumulado, qty = conteo de renglones)
+                $sql_update_padre = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso 
+                                     SET 
+                                        amount = (SELECT COALESCE(SUM(amount), 0) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso."),
+                                        qty = (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso.")
+                                     WHERE rowid = ".$id_traspaso;
+
+                $res_update_padre = $db->query($sql_update_padre);
+
+                if ($res_update_padre) {
+                    $db->commit();
+                    
+                    // Limpiamos los campos del formulario POST
+                    $_POST['idprod'] = '';
+                    $_POST['qty'] = '1';
+                    
+                    // Redireccionamos limpiamente para recargar la pantalla y pintar la nueva línea
+                    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+                    exit;
+                } else {
+                    $db->rollback();
+                    print "Error al actualizar totales en tabla Padre: " . $db->lasterror() . "<br>";
+                    print "Query ejecutado: " . $sql_update_padre;
+                    exit;
+                }
+
             } else {
                 $db->rollback();
                 // Dejamos el atrapador de errores por si MySQL rebota algo más
-                print "Error directo de MySQL: " . $db->lasterror() . "<br>";
+                print "Error directo de MySQL (Línea): " . $db->lasterror() . "<br>";
                 print "Query ejecutado: " . $sql_insert;
                 exit;
             }
-        }
+        }// FIN ACTION ADDLINE (FAA)
 
-    } // FIN ACTION ADDLINE (FAA)
-
-    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
+	    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
     if ($action == 'search_products_ajax') {
         top_httphead('application/json');
 
@@ -766,13 +784,21 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         print '<input type="hidden" name="id" value="' . $object->id.'">';
     }
 
-    print '<table class="noborder noshadow centpercent">';
-    print '<tr class="liste_titre"><td>Producto a Traspasar</td><td class="right" width="150">Cantidad</td><td class="center" width="150">Acción</td></tr>';
+    print '<table class="noborder noshadow centpercent">'; // Apertura de la tabla
+    
+    // --- CABECERAS MODIFICADAS CON COSTO PMP E IMPORTE ---
+    print '<tr class="liste_titre">';
+    print '<td>Producto a Traspasar</td>';
+    print '<td class="right" width="120">Cantidad</td>';
+    print '<td class="right" width="140">Costo Promedio (PMP)</td>'; // <-- NUEVA
+    print '<td class="right" width="140">Importe</td>';              // <-- NUEVA
+    print '<td class="center" width="120">Acción</td>';
+    print '</tr>';
 
     // 1. Mostrar las líneas que ya estén agregadas en la base de datos
-    // === REEMPLAZAMOS LA LECTURA NATIVA POR UN QUERY DIRECTO ===
+    // === REEMPLAZAMOS LA LECTURA NATIVA POR UN QUERY DIRECTO (INCLUYENDO PMP Y AMOUNT) ===
     $lineas_guardadas = array();
-    $sql_lines = "SELECT rowid, ref, fk_product, qty FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int) $object->id);
+    $sql_lines = "SELECT rowid, ref, fk_product, qty, pmp, amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int) $object->id);
     $res_lines = $db->query($sql_lines);
     
     if ($res_lines) {
@@ -795,6 +821,11 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         
         print '<td>' . $prod_ref . '</td>'; 
         print '<td class="right">' . $linea_guardada->qty . '</td>';
+        
+        // --- NUEVAS CELDAS DE VALORES MONETARIOS FORMATEADOS ---
+        print '<td class="right">' . price($linea_guardada->pmp, 0, '', 1, -1, -1, $conf->currency) . '</td>';
+        print '<td class="right">' . price($linea_guardada->amount, 0, '', 1, -1, -1, $conf->currency) . '</td>';
+        
         // Modificamos el botón eliminar para que mande el lineid correcto desde el objeto de la BD
         print '<td class="center">';
         // Ponemos un botón simple que altera el formulario padre al darle clic
@@ -802,40 +833,18 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         print img_delete().' Eliminar';
         print '</button>';
         print '</td>';
-        //print '<td class="center"><a href="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'&action=deleteline&lineid='.$linea_guardada->rowid.'&token='.$object->token.'">'.img_delete().' Eliminar</a></td>';
-        print '</tr>';
-    }
-    // ==========================================================
-
-    
-    // 2. Pintar la fila de captura (Si está en Borrador)
-        //if ($object->status == 0) {
-        if (true) {
-        print '<tr class="nodrag nodrop">';
-        
-        print '<td>';
-        // Select vacío: ya NO cargamos el catálogo completo aquí.
-        // Se alimenta vía AJAX (acción search_products_ajax) mientras el usuario escribe.
-        if (!is_object($form)) {
-            require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
-            $form = new Form($db);
-        }
-
-        print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
-        print '</td>';
-        
-        print '<td class="right">';
-        print '<input type="number" size="4" name="qty" id="qty" value="1" class="right maxwidth75" min="1">';
-        print '</td>';
-        
-        print '<td class="center">';
-        print '<input type="submit" class="button" value="Añadir Partida">';
-        print '</td>';
-        
         print '</tr>';
     }
 
-    print '</table>';
+    // --- FILA FINAL DE TOTALES UTILIZANDO EL AMOUNT DE LA TABLA PADRE ---
+    print '<tr class="liste_total">';
+    print '<td colspan="3" class="right"><strong>Total a Costo:</strong></td>';
+    print '<td class="right"><strong>' . price($object->amount, 0, '', 1, -1, -1, $conf->currency) . '</strong></td>';
+    print '<td></td>'; // Celda vacía para alinear correctamente con la columna Acción
+    print '</tr>';
+
+    print '</table>'; // Cierre de la tabla
+
     print '</form>';
     print '<script type="text/javascript">
 jQuery(document).ready(function() {
