@@ -237,90 +237,106 @@ if (empty($reshook)) {
     // ACTION ADDLINE (FAA)
     //if ($action == 'addline' && $user->rights->traspasomultiempresa->crear) { // Ajusta el permiso a tu módulo
 	if ($action == 'addline') {
-            if (!$error) {
-            $db->begin();
-        
-            // 1. Calculamos la referencia y los datos obligatorios
-            $partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
-            $fecha_actual  = dol_print_date(dol_now(), '%Y-%m-%d %H:%M:%S');
-            $usuario_crea  = (int) $user->id;
-            $id_traspaso   = (int) $object->id;
-            $id_producto   = (int) $idprod;
-            $cantidad_prod = (double) $qty;
-            $estatus_ini   = 0; // Borrador
+    
+    // >>> CORRECCIÓN CRÍTICA: Recuperar los valores enviados por el formulario <<<
+    // Dolibarr limpia y extrae los datos usando GETPOST('nombre_input', 'tipo')
+    $idprod = GETPOST('idprod', 'int');
+    $qty    = GETPOST('qty', 'int');
 
-            // 1.5. Cargar el producto nativo de Dolibarr para extraer su Costo Promedio (PMP)
-            require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
-            $productStatic = new Product($db);
-            $productStatic->fetch($id_producto);
+    // Validación básica antes de continuar
+    if (empty($idprod) || $idprod <= 0) {
+        $error++;
+        setEventMessages("Por favor, selecciona un producto válido de la lista.", null, 'errors');
+    }
+    if (empty($qty) || $qty <= 0) {
+        $error++;
+        setEventMessages("Por favor, ingresa una cantidad mayor a cero.", null, 'errors');
+    }
 
-            $pmp_costo = (double) $productStatic->pmp;
-            // Si el producto no tiene compras previas, usamos el cost_price como respaldo
-            if (empty($pmp_costo) || $pmp_costo <= 0) {
-                $pmp_costo = (double) $productStatic->cost_price;
-            }
-            if (empty($pmp_costo)) {
-                $pmp_costo = 0.0;
-            }
+    if (!$error) {
+        $db->begin();
+    
+        // 1. Calculamos la referencia y los datos obligatorios
+        $partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
+        $fecha_actual  = dol_print_date(dol_now(), '%Y-%m-%d %H:%M:%S');
+        $usuario_crea  = (int) $user->id;
+        $id_traspaso   = (int) $object->id;
+        $id_producto   = (int) $idprod;       // <-- Ahora sí valdrá el ID del producto
+        $cantidad_prod = (double) $qty;       // <-- Ahora sí valdrá la cantidad escrita
+        $estatus_ini   = 0; // Borrador
 
-            // Calcular el Importe total de la partida
-            $importe_total = (double) ($cantidad_prod * $pmp_costo);
-        
-            // 2. Armamos el Query manual directo a tu tabla real (incluyendo pmp y amount)
-            $sql_insert = "INSERT INTO ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline ";
-            $sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty, pmp, amount) ";
-            $sql_insert.= "VALUES (";
-            $sql_insert.= "'".$db->escape($partida_ref)."', ";
-            $sql_insert.= "'".$db->escape($fecha_actual)."', ";
-            $sql_insert.= "".$usuario_crea.", ";
-            $sql_insert.= "".$estatus_ini.", ";
-            $sql_insert.= "".$id_traspaso.", ";
-            $sql_insert.= "".$id_producto.", ";
-            $sql_insert.= "".$cantidad_prod.", ";
-            $sql_insert.= "".$pmp_costo.", ";
-            $sql_insert.= "".$importe_total."";
-            $sql_insert.= ")";
-        
-            // 3. Ejecutamos la consulta en la Base de Datos para la línea hija
-            $res_query = $db->query($sql_insert);
-        
-            if ($res_query) {
+        // 1.5. Cargar el producto nativo de Dolibarr para extraer su Costo Promedio (PMP)
+        require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
+        $productStatic = new Product($db);
+        $productStatic->fetch($id_producto);
+
+        $pmp_costo = (double) $productStatic->pmp;
+        // Si el producto no tiene compras previas, usamos el cost_price como respaldo
+        if (empty($pmp_costo) || $pmp_costo <= 0) {
+            $pmp_costo = (double) $productStatic->cost_price;
+        }
+        if (empty($pmp_costo)) {
+            $pmp_costo = 0.0;
+        }
+
+        // Calcular el Importe total de la partida
+        $importe_total = (double) ($cantidad_prod * $pmp_costo);
+    
+        // 2. Armamos el Query manual directo a tu tabla real
+        $sql_insert = "INSERT INTO ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline ";
+        // Asegúrate de que las columnas coincidan al 100% con tu tabla de phpMyAdmin
+        $sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty, pmp, amount) ";
+        $sql_insert.= "VALUES (";
+        $sql_insert.= "'".$db->escape($partida_ref)."', ";
+        $sql_insert.= "'".$db->escape($fecha_actual)."', ";
+        $sql_insert.= "".$usuario_crea.", ";
+        $sql_insert.= "".$estatus_ini.", ";
+        $sql_insert.= "".$id_traspaso.", ";
+        $sql_insert.= "".$id_producto.", ";
+        $sql_insert.= "".$cantidad_prod.", ";
+        $sql_insert.= "".$pmp_costo.", ";
+        $sql_insert.= "".$importe_total."";
+        $sql_insert.= ")";
+    
+        // 3. Ejecutamos la consulta en la Base de Datos para la línea hija
+        $res_query = $db->query($sql_insert);
+    
+        if ($res_query) {
+            
+            // 3.5. Actualizar la tabla PADRE
+            $sql_update_padre = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso 
+                                 SET 
+                                    amount = (SELECT COALESCE(SUM(amount), 0) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso."),
+                                    qty = (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso.")
+                                 WHERE rowid = ".$id_traspaso;
+
+            $res_update_padre = $db->query($sql_update_padre);
+
+            if ($res_update_padre) {
+                $db->commit();
                 
-                // 3.5. Actualizar la tabla PADRE (amount = total acumulado, qty = conteo de renglones)
-                $sql_update_padre = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso 
-                                     SET 
-                                        amount = (SELECT COALESCE(SUM(amount), 0) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso."),
-                                        qty = (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso.")
-                                     WHERE rowid = ".$id_traspaso;
-
-                $res_update_padre = $db->query($sql_update_padre);
-
-                if ($res_update_padre) {
-                    $db->commit();
-                    
-                    // Limpiamos los campos del formulario POST
-                    $_POST['idprod'] = '';
-                    $_POST['qty'] = '1';
-                    
-                    // Redireccionamos limpiamente para recargar la pantalla y pintar la nueva línea
-                    header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
-                    exit;
-                } else {
-                    $db->rollback();
-                    print "Error al actualizar totales en tabla Padre: " . $db->lasterror() . "<br>";
-                    print "Query ejecutado: " . $sql_update_padre;
-                    exit;
-                }
-
+                // Limpiamos los campos del formulario POST
+                $_POST['idprod'] = '';
+                $_POST['qty'] = '1';
+                
+                // Redireccionamos limpiamente para recargar la pantalla
+                header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+                exit;
             } else {
                 $db->rollback();
-                // Dejamos el atrapador de errores por si MySQL rebota algo más
-                print "Error directo de MySQL (Línea): " . $db->lasterror() . "<br>";
-                print "Query ejecutado: " . $sql_insert;
+                print "Error al actualizar totales en tabla Padre: " . $db->lasterror() . "<br>";
+                print "Query ejecutado: " . $sql_update_padre;
                 exit;
             }
+
+        } else {
+            $db->rollback();
+            print "Error directo de MySQL (Línea): " . $db->lasterror() . "<br>";
+            print "Query ejecutado: " . $sql_insert;
+            exit;
         }
-	}	// FIN ACTION ADDLINE (FAA)
+    }
+} // FIN ACTION ADDLINE
 
 	    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
     if ($action == 'search_products_ajax') {
