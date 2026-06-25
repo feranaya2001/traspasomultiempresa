@@ -845,6 +845,34 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     print '<td></td>'; // Celda vacía para alinear correctamente con la columna Acción
     print '</tr>';
 
+	// 2. Pintar la fila de captura (Si está en Borrador)
+    if (true) {
+        print '<tr class="nodrag nodrop" style="background: #f8f9fa;">';
+        
+        print '<td>';
+        // Select vacío controlado por tu flujo AJAX actual
+        if (!is_object($form)) {
+            require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+            $form = new Form($db);
+        }
+        print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
+        print '</td>';
+        
+        print '<td class="right">';
+        print '<input type="number" size="4" name="qty" id="qty" value="1" class="right maxwidth75" min="1">';
+        print '</td>';
+        
+        // >>> NUEVO: Agregamos estas celdas vacías para que no se desalineen las columnas del PMP e Importe <<<
+        print '<td class="right" style="color: #888; font-style: italic;">(Automático)</td>';
+        print '<td class="right" style="color: #888; font-style: italic;">(Automático)</td>';
+        
+        print '<td class="center">';
+        print '<input type="submit" class="button" value="Añadir Partida">';
+        print '</td>';
+        
+        print '</tr>';
+    }
+
     print '</table>'; // Cierre de la tabla
 
     print '</form>';
