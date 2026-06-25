@@ -786,34 +786,64 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         print '<input type="hidden" name="id" value="' . $object->id.'">';
     }
 
-    print '<table class="noborder noshadow centpercent">'; // Apertura de la tabla
+        print '<table class="noborder noshadow centpercent">';
     
-    // --- CABECERAS MODIFICADAS CON COSTO PMP E IMPORTE ---
+    // 1. Cabeceras principales de la tabla
     print '<tr class="liste_titre">';
     print '<td>Producto a Traspasar</td>';
     print '<td class="right" width="120">Cantidad</td>';
-    print '<td class="right" width="140">Costo Promedio (PMP)</td>'; // <-- NUEVA
-    print '<td class="right" width="140">Importe</td>';              // <-- NUEVA
+    print '<td class="right" width="140">Costo Promedio (PMP)</td>';
+    print '<td class="right" width="140">Importe</td>';
     print '<td class="center" width="120">Acción</td>';
     print '</tr>';
 
-    // 1. Mostrar las líneas que ya estén agregadas en la base de datos
-    // === REEMPLAZAMOS LA LECTURA NATIVA POR UN QUERY DIRECTO (INCLUYENDO PMP Y AMOUNT) ===
+    // 2. FILA DE CAPTURA EN BLANCO (Colocada arriba para mejor UX)
+    if (true) {
+        print '<tr class="nodrag nodrop" style="background: #fdfdfd; border-bottom: 2px solid #ddd;">';
+        
+        // Selector de productos con buscador AJAX
+        print '<td>';
+        if (!is_object($form)) {
+            require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+            $form = new Form($db);
+        }
+        print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
+        print '</td>';
+        
+        // Input de cantidad
+        print '<td class="right">';
+        print '<input type="number" size="4" name="qty" id="qty" value="1" class="right maxwidth75" min="1">';
+        print '</td>';
+        
+        // Columnas automáticas de costo e importe
+        print '<td class="right" style="color: #999; font-style: italic; font-size: 0.9em;">(Automático)</td>';
+        print '<td class="right" style="color: #999; font-style: italic; font-size: 0.9em;">(Automático)</td>';
+        
+        // Botón Añadir
+        print '<td class="center">';
+        print '<input type="submit" class="button" value="Añadir Partida" id="btn_add_line">';
+        print '</td>';
+        
+        print '</tr>';
+    }
+
+    // 3. Renderizar las líneas existentes que ya están en la Base de Datos
     $lineas_guardadas = array();
     $sql_lines = "SELECT rowid, ref, fk_product, qty, pmp, amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int) $object->id);
     $res_lines = $db->query($sql_lines);
     
     if ($res_lines) {
         while ($linea_obj = $db->fetch_object($res_lines)) {
-            $lineas_guardadas[] = $linea_obj;
+            // Evitamos pintar en la tabla registros basura que tengan producto 0 por errores previos
+            if ((int)$linea_obj->fk_product > 0) {
+                $lineas_guardadas[] = $linea_obj;
+            }
         }
     }
     
-    // Cambiamos el foreach para que recorra nuestro nuevo arreglo manual
     foreach ($lineas_guardadas as $linea_guardada) {
         print '<tr class="oddeven">';
         
-        // Tu código actual para buscar el nombre del producto (se queda exactamente igual)
         $prod_ref = $linea_guardada->fk_product;
         $sql_pname = "SELECT ref, label FROM ".MAIN_DB_PREFIX."product WHERE rowid = ".((int) $linea_guardada->fk_product);
         $res_pname = $db->query($sql_pname);
@@ -823,14 +853,11 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         
         print '<td>' . $prod_ref . '</td>'; 
         print '<td class="right">' . $linea_guardada->qty . '</td>';
-        
-        // --- NUEVAS CELDAS DE VALORES MONETARIOS FORMATEADOS ---
         print '<td class="right">' . price($linea_guardada->pmp, 0, '', 1, -1, -1, $conf->currency) . '</td>';
         print '<td class="right">' . price($linea_guardada->amount, 0, '', 1, -1, -1, $conf->currency) . '</td>';
         
-        // Modificamos el botón eliminar para que mande el lineid correcto desde el objeto de la BD
+        // Botón Eliminar
         print '<td class="center">';
-        // Ponemos un botón simple que altera el formulario padre al darle clic
         print '<button type="button" class="button button-delete-line" data-id="'.$linea_guardada->rowid.'" style="padding: 2px 5px; background: none; border: none; color: #a40000; cursor: pointer;">';
         print img_delete().' Eliminar';
         print '</button>';
@@ -838,40 +865,12 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         print '</tr>';
     }
 
-    // --- FILA FINAL DE TOTALES UTILIZANDO EL AMOUNT DE LA TABLA PADRE ---
-    print '<tr class="liste_total">';
+    // 4. FILA ABSOLUTA DE TOTALES (Siempre al final)
+    print '<tr class="liste_total" style="border-top: 2px solid #ccc;">';
     print '<td colspan="3" class="right"><strong>Total a Costo:</strong></td>';
     print '<td class="right"><strong>' . price($object->amount, 0, '', 1, -1, -1, $conf->currency) . '</strong></td>';
-    print '<td></td>'; // Celda vacía para alinear correctamente con la columna Acción
+    print '<td></td>'; 
     print '</tr>';
-
-	// 2. Pintar la fila de captura (Si está en Borrador)
-    if (true) {
-        print '<tr class="nodrag nodrop" style="background: #f8f9fa;">';
-        
-        print '<td>';
-        // Select vacío controlado por tu flujo AJAX actual
-        if (!is_object($form)) {
-            require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
-            $form = new Form($db);
-        }
-        print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
-        print '</td>';
-        
-        print '<td class="right">';
-        print '<input type="number" size="4" name="qty" id="qty" value="1" class="right maxwidth75" min="1">';
-        print '</td>';
-        
-        // >>> NUEVO: Agregamos estas celdas vacías para que no se desalineen las columnas del PMP e Importe <<<
-        print '<td class="right" style="color: #888; font-style: italic;">(Automático)</td>';
-        print '<td class="right" style="color: #888; font-style: italic;">(Automático)</td>';
-        
-        print '<td class="center">';
-        print '<input type="submit" class="button" value="Añadir Partida">';
-        print '</td>';
-        
-        print '</tr>';
-    }
 
     print '</table>'; // Cierre de la tabla
 
