@@ -236,6 +236,7 @@ if (empty($reshook)) {
 
     // ACTION ADDLINE (FAA)
     //if ($action == 'addline' && $user->rights->traspasomultiempresa->crear) { // Ajusta el permiso a tu módulo
+	if ($action == 'addline') {
             if (!$error) {
             $db->begin();
         
@@ -318,7 +319,8 @@ if (empty($reshook)) {
                 print "Query ejecutado: " . $sql_insert;
                 exit;
             }
-        }// FIN ACTION ADDLINE (FAA)
+        }
+	}	// FIN ACTION ADDLINE (FAA)
 
 	    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
     if ($action == 'search_products_ajax') {
