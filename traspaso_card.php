@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.5
+ * Version: 1.0.6
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -207,136 +207,284 @@ if (empty($reshook)) {
 
 	// Actions cancel, add, update, update_extras, confirm_validate, confirm_delete, confirm_deleteline, confirm_clone, confirm_close, confirm_setdraft, confirm_reopen
 	include DOL_DOCUMENT_ROOT.'/core/actions_addupdatedelete.inc.php';
+	// =========================================================================
+	// >>> ACCIÓN: VALIDAR TRASPASO MULTIEMPRESA (ORIGEN -> DESTINO) <<<
+	// =========================================================================
+	if ($action == 'validate') {
+		if (empty($permissiontoadd)) { 
+			accessforbidden('NotEnoughPermissions', 0, 1);
+		}
 
-	// Actions when linking object each other
-	include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
+		$error = 0;
+		$id_traspaso = (int) $object->id;
+		$warehouse_origen = (int) $object->fk_warehouse_origen;
+		$entidad_destino  = (int) $object->entidadDestino; // ID de la otra empresa
+		$warehouse_destino = (int) $object->fk_warehouse_destino; // Almacén en la otra empresa
 
-	// Actions when printing a doc from card
-	include DOL_DOCUMENT_ROOT.'/core/actions_printing.inc.php';
+		// Guardamos la entidad actual del entorno para poder regresar al final
+		$entidad_origen = (int) $conf->entity;
 
-	// Action to move up and down lines of object
-	//include DOL_DOCUMENT_ROOT.'/core/actions_lineupdown.inc.php';
+		// 1. Cargar las líneas guardadas en el borrador para validar existencias
+		$lineas_validacion = array();
+		$sql_check = "SELECT rowid, fk_product, qty, pmp FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso;
+		$res_check = $db->query($sql_check);
 
-	// Action to build doc
-	include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+		if ($res_check) {
+			while ($line_obj = $db->fetch_object($res_check)) {
+				$lineas_validacion[] = $line_obj;
+			}
+		}
 
-	if ($action == 'set_thirdparty' && $permissiontoadd) {
-		$object->setValueFrom('fk_soc', GETPOSTINT('fk_soc'), '', null, 'date', '', $user, $triggermodname);
+		if (empty($lineas_validacion)) {
+			$error++;
+			setEventMessages("No puedes validar un traspaso sin partidas añadidas.", null, 'errors');
+		}
+
+		// 2. Cargar las clases nativas de Dolibarr para el inventario
+		require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
+		require_once DOL_DOCUMENT_ROOT . '/product/stock/class/mouvementstock.class.php';
+
+		// 3. Bucle de verificación de stock EN EL ORIGEN (Filtro estricto)
+		foreach ($lineas_validacion as $linea) {
+			$productStatic = new Product($db);
+			$productStatic->fetch($linea->fk_product);
+
+			// Obtener el stock físico real exacto en este instante en el almacén origen
+			$productStatic->load_stock();
+			$stock_disponible = (double) $productStatic->stock_warehouse[$warehouse_origen]->real;
+
+			if ($linea->qty > $stock_disponible) {
+				$error++;
+				$msg_error = "No se puede validar: El producto <strong>[".$productStatic->ref."] ".$productStatic->label."</strong> ";
+				$msg_error.= "no tiene suficiente stock en el almacén origen (Requerido: ".$linea->qty.", Disponible: ".$stock_disponible.").";
+				setEventMessages($msg_error, null, 'errors');
+			}
+		}
+
+		// 4. Procesar la validación y los movimientos cruzados si no hay errores
+		if (!$error) {
+			$db->begin(); // Transacción SQL de seguridad
+
+			// A) Actualizar el estatus del documento padre a 1 (Validado)
+			$sql_update_status = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso SET status = 1 WHERE rowid = ".$id_traspaso;
+			$res_status = $db->query($sql_update_status);
+
+			if ($res_status) {
+				
+				// Descripción clara para las tarjetas de stock nativas de Dolibarr
+				$desc_movimiento = "Traspaso Multiempresa Ref: ".$object->ref;
+				$fk_origin       = (int) $object->id;
+				$origintype      = 'traspasomultiempresa';													  
+
+				// B) RECORRER LAS PARTIDAS PARA APLICAR ENTRADAS Y SALIDAS
+				foreach ($lineas_validacion as $linea) {
+					
+					// Descripción y datos de origen para enlazar en Dolibarr
+					$desc_movimiento = "Traspaso Multiempresa Ref: ".$object->ref;
+					$fk_origin       = (int) $object->id;              // ID de tu documento padre
+					$origintype      = 'traspasomultiempresa';        // Nombre corto de tu módulo/objeto
+
+					// === MOVIMIENTO 1: DESCONTAR EN ORIGEN (Entidad actual) ===
+					$conf->entity = $entidad_origen; // Aseguramos contexto de origen
+					
+					$mouvementStockOrigen = new MouvementStock($db);
+					
+					// Pasamos los parámetros adicionales al final: 
+					// delivery($user, $id_prod, $id_wh, $qty, $price, $comment, $fk_origin_line, $fk_origin, $origintype)
+					$res_mov_orig = $mouvementStockOrigen->delivery(
+						$user, 
+						$linea->fk_product, 
+						$warehouse_origen, 
+						$linea->qty, 
+						$linea->pmp, 
+						$desc_movimiento,
+						$linea->rowid, // ID de la línea que generó el movimiento
+						$fk_origin, 
+						$origintype
+					);
+					
+					if ($res_mov_orig < 0) {
+						$error++;
+						setEventMessages("Error al descontar stock origen (Prod ID ".$linea->fk_product."): ".$mouvementStockOrigen->error, null, 'errors');
+						break;
+					}
+
+					// === MOVIMIENTO 2: INCREMENTAR EN DESTINO (Cambio de Entidad/Empresa) ===
+					$conf->entity = $entidad_destino; // Cambiamos el contexto a la empresa destino
+					
+					$mouvementStockDestino = new MouvementStock($db);
+					
+					// Pasamos los mismos parámetros al receptor para enlazar la entrada en la otra entidad:
+					// reception($user, $id_prod, $id_wh, $qty, $price, $comment, $fk_origin_line, $fk_origin, $origintype)
+					$res_mov_dest = $mouvementStockDestino->reception(
+						$user, 
+						$linea->fk_product, 
+						$warehouse_destino, 
+						$linea->qty, 
+						$linea->pmp, 
+						$desc_movimiento,
+						$linea->rowid, // Mantenemos el enlace al ID de la línea
+						$fk_origin, 
+						$origintype
+					);
+					
+					if ($res_mov_dest < 0) {
+						$error++;
+						setEventMessages("Error al ingresar stock destino (Prod ID ".$linea->fk_product." en Entidad ".$entidad_destino."): ".$mouvementStockDestino->error, null, 'errors');
+						break;
+					}
+				}
+
+				// REVERSIÓN DE CONTEXTO OBLIGATORIA: Regresamos siempre el ERP a la entidad actual
+				$conf->entity = $entidad_origen;
+
+				// C) CIERRE DE TRANSACCIÓN BASE DE DATOS
+				if (!$error) {
+					$db->commit(); // Todo fue un éxito, guardamos de verdad en ambas tablas
+					setEventMessages("El traspaso ha sido validado correctamente. Se descontó del almacén de origen e ingresó al almacén de la empresa destino a costo PMP.", null, 'mesgs');
+					
+					header("Location: ".$_SERVER["PHP_SELF"]."?id=".$id_traspaso);
+					exit;
+				} else {
+					$db->rollback(); // Si falló la entrada o la salida, deshacemos TODO para evitar descuadres
+				}
+
+			} else {
+				$db->rollback();
+				setEventMessages("Error al actualizar el estado del traspaso: ".$db->lasterror(), null, 'errors');
+			}
+		}
 	}
-	if ($action == 'classin' && $permissiontoadd) {
-		$object->setProject(GETPOSTINT('projectid'));
+
+		// Actions when linking object each other
+		include DOL_DOCUMENT_ROOT.'/core/actions_dellink.inc.php';
+
+		// Actions when printing a doc from card
+		include DOL_DOCUMENT_ROOT.'/core/actions_printing.inc.php';
+
+		// Action to move up and down lines of object
+		//include DOL_DOCUMENT_ROOT.'/core/actions_lineupdown.inc.php';
+
+		// Action to build doc
+		include DOL_DOCUMENT_ROOT.'/core/actions_builddoc.inc.php';
+
+		if ($action == 'set_thirdparty' && $permissiontoadd) {
+			$object->setValueFrom('fk_soc', GETPOSTINT('fk_soc'), '', null, 'date', '', $user, $triggermodname);
+		}
+		if ($action == 'classin' && $permissiontoadd) {
+			$object->setProject(GETPOSTINT('projectid'));
+		}
+
+		// Actions to send emails
+		$triggersendname = 'TRASPASOMULTIEMPRESA_MYOBJECT_SENTBYMAIL';
+		$autocopy = 'MAIN_MAIL_AUTOCOPY_MYOBJECT_TO';
+		$trackid = 'traspaso'.$object->id;
+		include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
 	}
 
-	// Actions to send emails
-	$triggersendname = 'TRASPASOMULTIEMPRESA_MYOBJECT_SENTBYMAIL';
-	$autocopy = 'MAIN_MAIL_AUTOCOPY_MYOBJECT_TO';
-	$trackid = 'traspaso'.$object->id;
-	include DOL_DOCUMENT_ROOT.'/core/actions_sendmails.inc.php';
-}
+		// ACTION ADDLINE (FAA)
+		//if ($action == 'addline' && $user->rights->traspasomultiempresa->crear) { // Ajusta el permiso a tu módulo
+		if ($action == 'addline') {
+		
+		// >>> CORRECCIÓN CRÍTICA: Recuperar los valores enviados por el formulario <<<
+		// Dolibarr limpia y extrae los datos usando GETPOST('nombre_input', 'tipo')
+		$idprod = GETPOST('idprod', 'int');
+		$qty    = GETPOST('qty', 'int');
 
-    // ACTION ADDLINE (FAA)
-    //if ($action == 'addline' && $user->rights->traspasomultiempresa->crear) { // Ajusta el permiso a tu módulo
-	if ($action == 'addline') {
-    
-    // >>> CORRECCIÓN CRÍTICA: Recuperar los valores enviados por el formulario <<<
-    // Dolibarr limpia y extrae los datos usando GETPOST('nombre_input', 'tipo')
-    $idprod = GETPOST('idprod', 'int');
-    $qty    = GETPOST('qty', 'int');
+		// Validación básica antes de continuar
+		if (empty($idprod) || $idprod <= 0) {
+			$error++;
+			setEventMessages("Por favor, selecciona un producto válido de la lista.", null, 'errors');
+		}
+		if (empty($qty) || $qty <= 0) {
+			$error++;
+			setEventMessages("Por favor, ingresa una cantidad mayor a cero.", null, 'errors');
+		}
 
-    // Validación básica antes de continuar
-    if (empty($idprod) || $idprod <= 0) {
-        $error++;
-        setEventMessages("Por favor, selecciona un producto válido de la lista.", null, 'errors');
-    }
-    if (empty($qty) || $qty <= 0) {
-        $error++;
-        setEventMessages("Por favor, ingresa una cantidad mayor a cero.", null, 'errors');
-    }
+		if (!$error) {
+			$db->begin();
+		
+			// 1. Calculamos la referencia y los datos obligatorios
+			$partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
+			$fecha_actual  = dol_print_date(dol_now(), '%Y-%m-%d %H:%M:%S');
+			$usuario_crea  = (int) $user->id;
+			$id_traspaso   = (int) $object->id;
+			$id_producto   = (int) $idprod;       // <-- Ahora sí valdrá el ID del producto
+			$cantidad_prod = (double) $qty;       // <-- Ahora sí valdrá la cantidad escrita
+			$estatus_ini   = 0; // Borrador
 
-    if (!$error) {
-        $db->begin();
-    
-        // 1. Calculamos la referencia y los datos obligatorios
-        $partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
-        $fecha_actual  = dol_print_date(dol_now(), '%Y-%m-%d %H:%M:%S');
-        $usuario_crea  = (int) $user->id;
-        $id_traspaso   = (int) $object->id;
-        $id_producto   = (int) $idprod;       // <-- Ahora sí valdrá el ID del producto
-        $cantidad_prod = (double) $qty;       // <-- Ahora sí valdrá la cantidad escrita
-        $estatus_ini   = 0; // Borrador
+			// 1.5. Cargar el producto nativo de Dolibarr para extraer su Costo Promedio (PMP)
+			require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
+			$productStatic = new Product($db);
+			$productStatic->fetch($id_producto);
 
-        // 1.5. Cargar el producto nativo de Dolibarr para extraer su Costo Promedio (PMP)
-        require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
-        $productStatic = new Product($db);
-        $productStatic->fetch($id_producto);
+			$pmp_costo = (double) $productStatic->pmp;
+			// Si el producto no tiene compras previas, usamos el cost_price como respaldo
+			if (empty($pmp_costo) || $pmp_costo <= 0) {
+				$pmp_costo = (double) $productStatic->cost_price;
+			}
+			if (empty($pmp_costo)) {
+				$pmp_costo = 0.0;
+			}
 
-        $pmp_costo = (double) $productStatic->pmp;
-        // Si el producto no tiene compras previas, usamos el cost_price como respaldo
-        if (empty($pmp_costo) || $pmp_costo <= 0) {
-            $pmp_costo = (double) $productStatic->cost_price;
-        }
-        if (empty($pmp_costo)) {
-            $pmp_costo = 0.0;
-        }
+			// Calcular el Importe total de la partida
+			$importe_total = (double) ($cantidad_prod * $pmp_costo);
+		
+			// 2. Armamos el Query manual directo a tu tabla real
+			$sql_insert = "INSERT INTO ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline ";
+			// Asegúrate de que las columnas coincidan al 100% con tu tabla de phpMyAdmin
+			$sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty, pmp, amount) ";
+			$sql_insert.= "VALUES (";
+			$sql_insert.= "'".$db->escape($partida_ref)."', ";
+			$sql_insert.= "'".$db->escape($fecha_actual)."', ";
+			$sql_insert.= "".$usuario_crea.", ";
+			$sql_insert.= "".$estatus_ini.", ";
+			$sql_insert.= "".$id_traspaso.", ";
+			$sql_insert.= "".$id_producto.", ";
+			$sql_insert.= "".$cantidad_prod.", ";
+			$sql_insert.= "".$pmp_costo.", ";
+			$sql_insert.= "".$importe_total."";
+			$sql_insert.= ")";
+		
+			// 3. Ejecutamos la consulta en la Base de Datos para la línea hija
+			$res_query = $db->query($sql_insert);
+		
+			if ($res_query) {
+				
+				// 3.5. Actualizar la tabla PADRE
+				$sql_update_padre = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso 
+									SET 
+										amount = (SELECT COALESCE(SUM(amount), 0) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso."),
+										qty = (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso.")
+									WHERE rowid = ".$id_traspaso;
 
-        // Calcular el Importe total de la partida
-        $importe_total = (double) ($cantidad_prod * $pmp_costo);
-    
-        // 2. Armamos el Query manual directo a tu tabla real
-        $sql_insert = "INSERT INTO ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline ";
-        // Asegúrate de que las columnas coincidan al 100% con tu tabla de phpMyAdmin
-        $sql_insert.= "(ref, date_creation, fk_user_creat, status, fk_traspaso, fk_product, qty, pmp, amount) ";
-        $sql_insert.= "VALUES (";
-        $sql_insert.= "'".$db->escape($partida_ref)."', ";
-        $sql_insert.= "'".$db->escape($fecha_actual)."', ";
-        $sql_insert.= "".$usuario_crea.", ";
-        $sql_insert.= "".$estatus_ini.", ";
-        $sql_insert.= "".$id_traspaso.", ";
-        $sql_insert.= "".$id_producto.", ";
-        $sql_insert.= "".$cantidad_prod.", ";
-        $sql_insert.= "".$pmp_costo.", ";
-        $sql_insert.= "".$importe_total."";
-        $sql_insert.= ")";
-    
-        // 3. Ejecutamos la consulta en la Base de Datos para la línea hija
-        $res_query = $db->query($sql_insert);
-    
-        if ($res_query) {
-            
-            // 3.5. Actualizar la tabla PADRE
-            $sql_update_padre = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso 
-                                 SET 
-                                    amount = (SELECT COALESCE(SUM(amount), 0) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso."),
-                                    qty = (SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".$id_traspaso.")
-                                 WHERE rowid = ".$id_traspaso;
+				$res_update_padre = $db->query($sql_update_padre);
 
-            $res_update_padre = $db->query($sql_update_padre);
+				if ($res_update_padre) {
+					$db->commit();
+					
+					// Limpiamos los campos del formulario POST
+					$_POST['idprod'] = '';
+					$_POST['qty'] = '1';
+					
+					// Redireccionamos limpiamente para recargar la pantalla
+					header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
+					exit;
+				} else {
+					$db->rollback();
+					print "Error al actualizar totales en tabla Padre: " . $db->lasterror() . "<br>";
+					print "Query ejecutado: " . $sql_update_padre;
+					exit;
+				}
 
-            if ($res_update_padre) {
-                $db->commit();
-                
-                // Limpiamos los campos del formulario POST
-                $_POST['idprod'] = '';
-                $_POST['qty'] = '1';
-                
-                // Redireccionamos limpiamente para recargar la pantalla
-                header("Location: ".$_SERVER["PHP_SELF"]."?id=".$object->id);
-                exit;
-            } else {
-                $db->rollback();
-                print "Error al actualizar totales en tabla Padre: " . $db->lasterror() . "<br>";
-                print "Query ejecutado: " . $sql_update_padre;
-                exit;
-            }
-
-        } else {
-            $db->rollback();
-            print "Error directo de MySQL (Línea): " . $db->lasterror() . "<br>";
-            print "Query ejecutado: " . $sql_insert;
-            exit;
-        }
-    }
-} // FIN ACTION ADDLINE
+			} else {
+				$db->rollback();
+				print "Error directo de MySQL (Línea): " . $db->lasterror() . "<br>";
+				print "Query ejecutado: " . $sql_insert;
+				exit;
+			}
+		}
+	} // FIN ACTION ADDLINE
 
 	    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
     if ($action == 'search_products_ajax') {
@@ -999,7 +1147,6 @@ jQuery(document).ready(function() {
     
 
 	// Buttons for actions
-
 	if ($action != 'presend' && $action != 'editline') {
 		print '<div class="tabsAction">'."\n";
 		$parameters = array();
@@ -1022,10 +1169,21 @@ jQuery(document).ready(function() {
 			// Modify
 			print dolGetButtonAction('', $langs->trans('Modify'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=edit&token='.newToken(), '', $permissiontoadd);
 
-			// Validate
+			// Validate Ori
+			/*
 			if ($object->status == $object::STATUS_DRAFT) {
 				if (empty($object->table_element_line) || (is_array($object->lines) && count($object->lines) > 0)) {
 					print dolGetButtonAction('', $langs->trans('Validate'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=confirm_validate&confirm=yes&token='.newToken(), '', $permissiontoadd);
+				} else {
+					$langs->load("errors");
+					print dolGetButtonAction($langs->trans("ErrorAddAtLeastOneLineFirst"), $langs->trans("Validate"), 'default', '#', '', 0);
+				}
+			} */
+
+			// Validate: Validamos si tu documento padre indica que tiene renglones registrados (qty > 0 en la tabla padre) FAA
+			if ($object->status == $object::STATUS_DRAFT) {
+				if ((int)$object->qty > 0) { // <-- Evaluamos tu contador real de partidas
+					print dolGetButtonAction('', $langs->trans('Validate'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.'&action=validate&token='.newToken(), '', $permissiontoadd);
 				} else {
 					$langs->load("errors");
 					print dolGetButtonAction($langs->trans("ErrorAddAtLeastOneLineFirst"), $langs->trans("Validate"), 'default', '#', '', 0);
