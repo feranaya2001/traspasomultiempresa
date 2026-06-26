@@ -276,64 +276,65 @@ if (empty($reshook)) {
 				$fk_origin       = (int) $object->id;
 				$origintype      = 'traspasomultiempresa';													  
 
-				// B) RECORRER LAS PARTIDAS PARA APLICAR ENTRADAS Y SALIDAS
-				foreach ($lineas_validacion as $linea) {
-					
-					// Descripción y datos de origen para enlazar en Dolibarr
-					$desc_movimiento = "Traspaso Multiempresa Ref: ".$object->ref;
-					$fk_origin       = (int) $object->id;              // ID de tu documento padre
-					$origintype      = 'traspasomultiempresa';        // Nombre corto de tu módulo/objeto
+			// B) RECORRER LAS PARTIDAS PARA APLICAR ENTRADAS Y SALIDAS
+            foreach ($lineas_validacion as $linea) {
+                
+                $desc_movimiento = "Traspaso Multiempresa Ref: ".$object->ref;
+                $fk_origin       = (int) $object->id;
+                $origintype      = 'traspasomultiempresa';
 
-					// === MOVIMIENTO 1: DESCONTAR EN ORIGEN (Entidad actual) ===
-					$conf->entity = $entidad_origen; // Aseguramos contexto de origen
-					
-					$mouvementStockOrigen = new MouvementStock($db);
-					
-					// Pasamos los parámetros adicionales al final: 
-					// delivery($user, $id_prod, $id_wh, $qty, $price, $comment, $fk_origin_line, $fk_origin, $origintype)
-					$res_mov_orig = $mouvementStockOrigen->delivery(
-						$user, 
-						$linea->fk_product, 
-						$warehouse_origen, 
-						$linea->qty, 
-						$linea->pmp, 
-						$desc_movimiento,
-						$linea->rowid, // ID de la línea que generó el movimiento
-						$fk_origin, 
-						$origintype
-					);
-					
-					if ($res_mov_orig < 0) {
-						$error++;
-						setEventMessages("Error al descontar stock origen (Prod ID ".$linea->fk_product."): ".$mouvementStockOrigen->error, null, 'errors');
-						break;
-					}
+                // === MOVIMIENTO 1: SALIDA DE INVENTARIO (Empresa Origen) ===
+                $conf->entity = $entidad_origen; // Aseguramos contexto de origen
+                
+                $mouvementStockOrigen = new MouvementStock($db);
+                
+                // ASIGNACIÓN DIRECTA DE TRAZABILIDAD (Evita el desplazamiento de columnas en MySQL)
+                $mouvementStockOrigen->fk_origin  = $fk_origin;
+                $mouvementStockOrigen->origintype = $origintype;
+                
+                // Llamada limpia con los 6 parámetros estándar de Dolibarr:
+                // livraison($user, $id_producto, $id_almacen, $cantidad, $precio_pmp, $comentario)
+                $res_mov_orig = $mouvementStockOrigen->livraison(
+                    $user, 
+                    (int) $linea->fk_product, 
+                    (int) $warehouse_origen, 
+                    (double) $linea->qty, 
+                    (double) $linea->pmp, 
+                    $desc_movimiento
+                );
+                
+                if ($res_mov_orig < 0) {
+                    $error++;
+                    setEventMessages("Error al descontar stock origen (Prod ID ".$linea->fk_product."): ".$mouvementStockOrigen->error, null, 'errors');
+                    break;
+                }
 
-					// === MOVIMIENTO 2: INCREMENTAR EN DESTINO (Cambio de Entidad/Empresa) ===
-					$conf->entity = $entidad_destino; // Cambiamos el contexto a la empresa destino
-					
-					$mouvementStockDestino = new MouvementStock($db);
-					
-					// Pasamos los mismos parámetros al receptor para enlazar la entrada en la otra entidad:
-					// reception($user, $id_prod, $id_wh, $qty, $price, $comment, $fk_origin_line, $fk_origin, $origintype)
-					$res_mov_dest = $mouvementStockDestino->reception(
-						$user, 
-						$linea->fk_product, 
-						$warehouse_destino, 
-						$linea->qty, 
-						$linea->pmp, 
-						$desc_movimiento,
-						$linea->rowid, // Mantenemos el enlace al ID de la línea
-						$fk_origin, 
-						$origintype
-					);
-					
-					if ($res_mov_dest < 0) {
-						$error++;
-						setEventMessages("Error al ingresar stock destino (Prod ID ".$linea->fk_product." en Entidad ".$entidad_destino."): ".$mouvementStockDestino->error, null, 'errors');
-						break;
-					}
-				}
+                // === MOVIMIENTO 2: ENTRADA DE INVENTARIO (Empresa Destino) ===
+                $conf->entity = $entidad_destino; // Cambiamos el contexto a la empresa destino
+                
+                $mouvementStockDestino = new MouvementStock($db);
+                
+                // ASIGNACIÓN DIRECTA DE TRAZABILIDAD en el destino
+                $mouvementStockDestino->fk_origin  = $fk_origin;
+                $mouvementStockDestino->origintype = $origintype;
+                
+                // Llamada limpia para la recepción:
+                // reception($user, $id_producto, $id_almacen, $cantidad, $precio_pmp, $comentario)
+                $res_mov_dest = $mouvementStockDestino->reception(
+                    $user, 
+                    (int) $linea->fk_product, 
+                    (int) $warehouse_destino, 
+                    (double) $linea->qty, 
+                    (double) $linea->pmp, 
+                    $desc_movimiento
+                );
+                
+                if ($res_mov_dest < 0) {
+                    $error++;
+                    setEventMessages("Error al ingresar stock destino (Prod ID ".$linea->fk_product." en Entidad ".$entidad_destino."): ".$mouvementStockDestino->error, null, 'errors');
+                    break;
+                }
+            }
 
 				// REVERSIÓN DE CONTEXTO OBLIGATORIA: Regresamos siempre el ERP a la entidad actual
 				$conf->entity = $entidad_origen;
