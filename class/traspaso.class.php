@@ -259,38 +259,40 @@ class Traspaso extends CommonObject
 	 * @param	int<0,1> 	$notrigger	0=launch triggers after, 1=disable triggers
 	 * @return	int<-1,max>				Return integer <0 if KO, Id of created object if OK
 	 */
-	public function create(User $user, $notrigger = 0)
-	{
-        // === NUEVO SISTEMA PERMANENTE PARA GENERAR EL CONSECUTIVO PROVISIONAL ===
-        if (empty($this->ref)) {
-            // Al crear un documento nuevo en Dolibarr que nace como Borrador,
-            // le asignamos una referencia provisional basada en su ID único (rowid).
-            $sql_prov = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso ";
-            $sql_prov.= "SET ref = '(PROV" . $this->id . ")' WHERE rowid = " . $this->id;
-            
-            $resql_prov = $this->db->query($sql_prov);
-            if ($resql_prov) {
-                $this->ref = '(PROV' . $this->id . ')';
-            } else {
-                $this->error = $this->db->lasterror();
-                return -1;
-            }
-        }
-        // ========================================================================
+	    public function create(User $user, $notrigger = 0)
+    {
+        global $conf, $langs;
+
+        // 1. Inyectar campos obligatorios que MariaDB y Dolibarr exigen para no romper el INSERT
+        $this->date_creation = dol_now(); 
+        $this->fk_user_creat = $user->id; 
+        $this->status = 0;                // Forzar estado inicial en 0 (Borrador)
         
-		// 1. Primero dejamos que Dolibarr cree el registro de forma nativa en la BD
+        // Asignamos una palabra temporal única usando los segundos exactos (Evita el error UNI)
+        $this->ref = 'PROV' . dol_print_date(dol_now(), '%Y%m%d%H%M%S');
+
+        // 2. Ejecutar la creación nativa del registro en la base de datos
         $result = $this->createCommon($user, $notrigger);
 
-        // 2. Si la creación fue exitosa ($result > 0), el objeto YA TIENE un ID real asignado en $this->id
+        // 3. Si la inserción fue exitosa ($result > 0), el registro ya nació físicamente
         if ($result > 0) {
-            if (empty($this->ref) || $this->ref == '(PROV)') {
-                // Ahora sí, hacemos el UPDATE con un ID que sí existe
-                $sql_prov = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso ";
-                $sql_prov.= "SET ref = '(PROV" . (int)$this->id . ")' WHERE rowid = " . (int)$this->id;
+            
+            // Le preguntamos a MariaDB qué rowid autoincremental exacto le dio a este registro
+            $last_id = (int) $this->db->last_insert_id(MAIN_DB_PREFIX . "traspasomultiempresa_traspaso");
+            
+            if (empty($last_id) && !empty($this->id)) {
+                $last_id = (int) $this->id;
+            }
+
+            if ($last_id > 0) {
+                // Reescribimos de inmediato el folio feo por tu formato limpio usando el ID asignado
+                $sql_prov = "UPDATE " . MAIN_DB_PREFIX . "traspasomultiempresa_traspaso ";
+                $sql_prov.= " SET ref = '(PROV" . $last_id . ")' WHERE rowid = " . $last_id;
                 
                 $resql_prov = $this->db->query($sql_prov);
                 if ($resql_prov) {
-                    $this->ref = '(PROV' . $this->id . ')';
+                    $this->id = $last_id; 
+                    $this->ref = '(PROV' . $last_id . ')'; 
                 } else {
                     $this->error = $this->db->lasterror();
                     return -1;
@@ -298,18 +300,10 @@ class Traspaso extends CommonObject
             }
         }
 
-        // 3. Retornamos el resultado del método create para que Dolibarr continúe su flujo
+        // Retornamos el resultado oficial del método
         return $result;
-        
-		// uncomment lines below if you want to validate object after creation
-		if ($result > 0) {
-		    $this->fetch($this->id); // needed to retrieve some fields (ie date_creation for masked ref)
-		// $resultupdate = $this->validate($user, $notrigger);
-		// if ($resultupdate < 0) { return $resultupdate; }
-		}
+    }
 
-		return $result;
-	}
 
 	/**
 	 * Clone an object into another one
