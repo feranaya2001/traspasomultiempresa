@@ -2,7 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur      <eldy@users.sourceforge.net>
  * Copyright (C) 2023-2024  Frédéric France          <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Ver 1.0.1  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -261,16 +261,25 @@ class Traspaso extends CommonObject
 	 */
 	public function create(User $user, $notrigger = 0)
 	{
-	    // === ESTO ES LO QUE FALTA PARA GENERAR EL CONSECUTIVO (PROV) ===
+        // === NUEVO SISTEMA PERMANENTE PARA GENERAR EL CONSECUTIVO PROVISIONAL ===
         if (empty($this->ref)) {
-            // Invocamos el motor de numeración de Dolibarr
-            $this->fetch_numbering(); 
-            // Generamos la referencia provisional
-            $this->ref = $this->getNextNum($user); 
+            // Al crear un documento nuevo en Dolibarr que nace como Borrador,
+            // le asignamos una referencia provisional basada en su ID único (rowid).
+            $sql_prov = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso ";
+            $sql_prov.= "SET ref = '(PROV" . $this->id . ")' WHERE rowid = " . $this->id;
+            
+            $resql_prov = $this->db->query($sql_prov);
+            if ($resql_prov) {
+                $this->ref = '(PROV' . $this->id . ')';
+            } else {
+                $this->error = $this->db->lasterror();
+                return -1;
+            }
         }
-        // ===============================================================
+        // ========================================================================
         
 		$result = $this->createCommon($user, $notrigger);
+
         
 		// uncomment lines below if you want to validate object after creation
 		if ($result > 0) {
