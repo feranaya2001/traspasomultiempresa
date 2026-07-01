@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.6
+ * Version: 1.0.8
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -641,13 +641,20 @@ if ($action == 'create') {
 	print $form->selectarray('fk_warehouse_origen', $almacenes_origen, GETPOST('fk_warehouse_origen', 'int'), 1);
 	print '</td></tr>';
 
-	// 3. Campo Entidad Destino (Consulta directa y filtrada a llx_entity)
+	// 3. Campo Entidad Destino (Consulta directa y filtrada a llx_entity - Excluyendo la entidad actual)
 	print '<tr class="field_entidadDestino"><td class="titlefieldcreate tdtop required">Entidad Destino</td><td>';
 	$entidades_destino = array();
 	$sql_entidades = "SELECT rowid, label FROM ".MAIN_DB_PREFIX."entity WHERE active = 1 AND visible = 1 AND rowid > 0";
 	$res_entidades = $db->query($sql_entidades);
 	if ($res_entidades) {
 		while ($obj = $db->fetch_object($res_entidades)) {
+			
+			// >>> FILTRO DE SEGURIDAD INDUSTRIAL <<<
+			// Si el ID de la entidad coincide con la entidad actual activa, la ignoramos de la lista
+			if ((int)$obj->rowid == (int)$conf->entity) {
+				continue;
+			}
+			
 			$entidades_destino[$obj->rowid] = $obj->label;
 		}
 	}
