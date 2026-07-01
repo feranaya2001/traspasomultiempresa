@@ -278,8 +278,28 @@ class Traspaso extends CommonObject
         }
         // ========================================================================
         
-		$result = $this->createCommon($user, $notrigger);
+		// 1. Primero dejamos que Dolibarr cree el registro de forma nativa en la BD
+        $result = $this->createCommon($user, $notrigger);
 
+        // 2. Si la creación fue exitosa ($result > 0), el objeto YA TIENE un ID real asignado en $this->id
+        if ($result > 0) {
+            if (empty($this->ref) || $this->ref == '(PROV)') {
+                // Ahora sí, hacemos el UPDATE con un ID que sí existe
+                $sql_prov = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso ";
+                $sql_prov.= "SET ref = '(PROV" . (int)$this->id . ")' WHERE rowid = " . (int)$this->id;
+                
+                $resql_prov = $this->db->query($sql_prov);
+                if ($resql_prov) {
+                    $this->ref = '(PROV' . $this->id . ')';
+                } else {
+                    $this->error = $this->db->lasterror();
+                    return -1;
+                }
+            }
+        }
+
+        // 3. Retornamos el resultado del método create para que Dolibarr continúe su flujo
+        return $result;
         
 		// uncomment lines below if you want to validate object after creation
 		if ($result > 0) {
