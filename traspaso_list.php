@@ -811,70 +811,82 @@ while ($i < $imaxinloop) {
 	// Store properties in $object
 	$object->setVarsFromFetchObj($obj);
 
-		// >>> PASO 2: INYECCIÓN INDUSTRIAL DE DATOS LOGÍSTICOS CRUZADOS MULTIEMPRESA <<<
+	// >>> PASO 2: INYECCIÓN INDUSTRIAL OPTIMIZADA Y COMPATIBLE CON TU BASE DE DATOS <<<
 
-	// 1. Resolver el nombre real del Almacén Origen (Consultado mediante el objeto $obj de tu SELECT)
-	if (!empty($obj->almacen_origen)) {
-		$object->fk_warehouse_origen = $obj->almacen_origen;
-	} else {
-		// Respaldo manual rápido por si el query principal no ejecutó el join
-		$sql_wh_orig = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$object->fk_warehouse_origen;
+	// 1. Resolver el nombre real del Almacén Origen (Usando el ID de tu columna fk_warehouse_origen)
+	$id_wh_orig = (int)$obj->fk_warehouse_origen;
+	if ($id_wh_orig > 0) {
+		$sql_wh_orig = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".$id_wh_orig;
 		$res_wh_orig = $db->query($sql_wh_orig);
 		if ($res_wh_orig && ($wh_orig_obj = $db->fetch_object($res_wh_orig))) {
 			$object->fk_warehouse_origen = $wh_orig_obj->label;
+		} else {
+			$object->fk_warehouse_origen = "Almacén ID: ".$id_wh_orig;
 		}
+	} else {
+		$object->fk_warehouse_origen = '<span class="opacitymedium">-</span>';
 	}
 
-	// 2. Resolver el nombre real de la Entidad Destino (Empresa Externa)
-	if (!empty($object->entidadDestino)) {
-		$sql_ent_dest = "SELECT label FROM ".MAIN_DB_PREFIX."const_entity WHERE rowid = ".(int)$object->entidadDestino;
+	// 2. Resolver el nombre real de la Entidad Destino (Usando los IDs 3 y 2 de tu columna entidadDestino)
+	$id_ent_dest = (int)$obj->entidadDestino;
+	if ($id_ent_dest > 0) {
+		// Consultamos la tabla maestra de entidades de Dolibarr de forma directa
+		$sql_ent_dest = "SELECT label FROM ".MAIN_DB_PREFIX."const_entity WHERE rowid = ".$id_ent_dest;
 		$res_ent_dest = $db->query($sql_ent_dest);
 		if ($res_ent_dest && ($ent_dest_obj = $db->fetch_object($res_ent_dest))) {
 			$object->entidadDestino = $ent_dest_obj->label;
 		} else {
-			$object->entidadDestino = "Entidad ID: ".$object->entidadDestino;
+			// Intento de respaldo secundario por si tu versión usa la tabla sin el prefijo const_
+			$sql_ent_dest_alt = "SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".$id_ent_dest;
+			$res_ent_dest_alt = $db->query($sql_ent_dest_alt);
+			if ($res_ent_dest_alt && ($ent_dest_obj_alt = $db->fetch_object($res_ent_dest_alt))) {
+				$object->entidadDestino = $ent_dest_obj_alt->label;
+			} else {
+				$object->entidadDestino = "Empresa N° ".$id_ent_dest;
+			}
 		}
+	} else {
+		$object->entidadDestino = '<span class="opacitymedium">-</span>';
 	}
 
-	// 3. Resolver el nombre real del Almacén Destino (Saltando dinámicamente a la otra empresa)
-	if (!empty($object->fk_warehouse_destino)) {
-		$sql_wh_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$object->fk_warehouse_destino;
-		
-		// Guardamos el contexto de la empresa actual
-		$ctx_entity_save = $conf->entity;
-		// Forzamos temporalmente a Dolibarr a mirar las tablas de la empresa destino
-		$conf->entity = (int)$obj->entidadDestino; 
-		
+	// 3. Resolver el nombre real del Almacén Destino (Usando los IDs 6 y 5 de tu columna fk_warehouse_destino)
+	$id_wh_dest = (int)$obj->fk_warehouse_destino;
+	if ($id_wh_dest > 0) {
+		// Al quitar el cambio de $conf->entity, la consulta se vuelve directa y no se bloquea por permisos
+		$sql_wh_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".$id_wh_dest;
 		$res_wh_dest = $db->query($sql_wh_dest);
 		if ($res_wh_dest && ($wh_dest_obj = $db->fetch_object($res_wh_dest))) {
 			$object->fk_warehouse_destino = $wh_dest_obj->label;
 		} else {
-			$object->fk_warehouse_destino = "Almacén ID: ".$object->fk_warehouse_destino;
+			$object->fk_warehouse_destino = "Almacén N° ".$id_wh_dest;
 		}
-		
-		// REVERSIÓN DE CONTEXTO OBLIGATORIA: Regresamos al operador a la empresa actual de inmediato
-		$conf->entity = $ctx_entity_save;
+	} else {
+		$object->fk_warehouse_destino = '<span class="opacitymedium">-</span>';
 	}
 
-	// 4. Resolver el Usuario Validador (Si el estatus es Validado = 1)
-	if ((int)$object->status == 1 && !empty($obj->fk_user_modif)) {
+	// 4. Asegurar la descripción larga (Columna description)
+	$object->description = !empty($obj->description) ? $obj->description : '<span class="opacitymedium">-</span>';
+
+	// 5. Resolver el Usuario Validador (Basado en tu columna status = 1 y fk_user_modif)
+	$current_status = (int)$obj->status; 
+	if ($current_status == 1 && !empty($obj->fk_user_modif)) {
 		require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
 		$userStatic = new User($db);
-		$userStatic->fetch($obj->fk_user_modif);
-		// Asignamos el nombre de usuario formal o su login de Dolibarr
-		$object->fk_user_modif = $userStatic->getNomUrl(1) ? $userStatic->getNomUrl(1) : $userStatic->login;
+		if ($userStatic->fetch($obj->fk_user_modif) > 0) {
+			$object->fk_user_modif = $userStatic->getNomUrl(1);
+		} else {
+			$object->fk_user_modif = "ID Usuario: ".$obj->fk_user_modif;
+		}
 	} else {
-		$object->fk_user_modif = '<span class="opacitymedium">-</span>'; // Guion tenue si sigue en borrador
+		$object->fk_user_modif = '<span class="opacitymedium">No validado</span>';
 	}
 
-	// 5. Formatear la Fecha y Hora de Validación (Usa el timestamp tms nativo de la tabla)
-	if ((int)$object->status == 1 && !empty($obj->tms)) {
-		// Transforma el timestamp de la BD en formato estético de Dolibarr (Día, Mes, Año, Hora y Minuto)
+	// 6. Formatear la Fecha de Validación limpia (Usando la columna tms de tu captura)
+	if ($current_status == 1 && !empty($obj->tms) && $obj->tms != '0000-00-00 00:00:00') {
 		$object->tms = dol_print_date($db->jdate($obj->tms), 'dayhour');
 	} else {
-		$object->tms = '<span class="opacitymedium">-</span>';
+		$object->tms = '<span class="opacitymedium">Pendiente</span>'; 
 	}
-	
 	// FIN >>> PASO 2
 
 	if ($mode == 'kanban' || $mode == 'kanbangroupby') {
