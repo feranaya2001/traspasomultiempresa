@@ -952,21 +952,26 @@ while ($i < $imaxinloop) {
 				print '<td'.($cssforfield ? ' class="'.$cssforfield.'"' : '').'>';
 				
 				// =========================================================================
-				// >>> DETECCIÓN Y OVERRIDE DE TUS COLUMNAS LOGÍSTICAS PERSONALIZADAS <<<
+				// >>> REEMPLAZO EN EL FOREACH PARA MOSTRAR CÓDIGOS CORTOS (AJ02, AJ03) <<<
 				// =========================================================================
-				
 				if ($key == 'fk_warehouse_origen') {
-					// 1. Almacén Origen Directo
-					$sql_wh_orig = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_origen;
+					// 1. Almacén Origen: Traemos 'ref' en lugar de 'label'
+					$sql_wh_orig = "SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_origen;
 					$res_wh_orig = $db->query($sql_wh_orig);
 					if ($res_wh_orig && ($wh_orig_obj = $db->fetch_object($res_wh_orig))) {
-						print $wh_orig_obj->label;
+						print $wh_orig_obj->ref; // Muestra "AJ01", etc.
 					} else {
-						print "Almacén ID: ".$obj->fk_warehouse_origen;
+						// Respaldo crudo directo
+						$res_raw = $db->query("SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_origen);
+						if ($res_raw && ($raw_obj = $db->fetch_object($res_raw))) {
+							print $raw_obj->ref;
+						} else {
+							print "ID: ".$obj->fk_warehouse_origen;
+						}
 					}
 					
 				} elseif ($key == 'entidadDestino') {
-					// 2. Entidad Destino Directo
+					// 2. Entidad Destino (Se queda igual porque ya funciona perfecto)
 					$sql_ent_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".(int)$obj->entidadDestino;
 					$res_ent_dest = $db->query($sql_ent_dest);
 					if ($res_ent_dest && ($ent_dest_obj = $db->fetch_object($res_ent_dest))) {
@@ -982,20 +987,27 @@ while ($i < $imaxinloop) {
 					}
 					
 				} elseif ($key == 'fk_warehouse_destino') {
-					// 3. Almacén Destino Directo
-					$sql_wh_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_destino;
-					$res_wh_dest = $db->query($sql_wh_dest);
-					if ($res_wh_dest && ($wh_dest_obj = $db->fetch_object($res_wh_dest))) {
-						print $wh_dest_obj->label;
-					} else {
-						print "Almacén N° ".$obj->fk_warehouse_destino;
-					}
+					// 3. Almacén Destino Cruzado: Traemos 'ref' rompiendo el candado multicompany
+					$ctx_entity_save = $conf->entity;
+					$conf->entity = (int)$obj->entidadDestino; // Saltamos a la otra empresa
 					
-				} elseif ($key == 'description') {
+					// Consultamos la columna 'ref' de la tabla de almacenes de la otra entidad
+					$sql_wh_dest = "SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_destino;
+					$res_wh_dest = $db->query($sql_wh_dest);
+					
+					$conf->entity = $ctx_entity_save; // Restauramos de inmediato
+					
+					if ($res_wh_dest && ($wh_dest_obj = $db->fetch_object($res_wh_dest))) {
+						print $wh_dest_obj->ref; // Muestra "AJ03" o "AJ02" de la otra sucursal
+					} else {
+						print "ID: ".$obj->fk_warehouse_destino;
+					} 				
+				}
+				
+				elseif ($key == 'description') {
 					// 4. Descripción larga
 					print !empty($obj->description) ? dol_trunc($obj->description, 40) : '<span class="opacitymedium">-</span>';
-					
-				} elseif ($key == 'fk_user_modif') {
+				}elseif ($key == 'fk_user_modif') {
 					// 5. Usuario Validador (Solo si status = 1)
 					if ((int)$obj->status == 1 && !empty($obj->fk_user_modif)) {
 						require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
