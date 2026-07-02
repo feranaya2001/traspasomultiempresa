@@ -2,7 +2,7 @@
 /* Copyright (C) 2007-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Version: 1.0.1
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -199,6 +199,46 @@ include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_array_fields.tpl.php';
 $object->fields = dol_sort_array($object->fields, 'position');
 //$arrayfields['anotherfield'] = array('type'=>'integer', 'label'=>'AnotherField', 'checked'=>1, 'enabled'=>1, 'position'=>90, 'csslist'=>'right');
 $arrayfields = dol_sort_array($arrayfields, 'position');
+// >>> PASO 1: REESTRUCTURACIÓN INDUSTRIAL DE COLUMNAS PARA EL TRASPASO <<<
+
+// 1. Aseguramos que los almacenes y la entidad estén marcados como visibles/activos
+if (isset($arrayfields['t.fk_warehouse_origen']))  $arrayfields['t.fk_warehouse_origen']['checked'] = 1;
+if (isset($arrayfields['t.entidadDestino']))       $arrayfields['t.entidadDestino']['checked'] = 1;
+if (isset($arrayfields['t.fk_warehouse_destino'])) $arrayfields['t.fk_warehouse_destino']['checked'] = 1;
+
+// 2. Quitamos el campo de Etiqueta (t.label) si existe, y forzamos el de Descripción (t.description)
+if (isset($arrayfields['t.label'])) {
+    unset($arrayfields['t.label']);
+}
+$arrayfields['t.description'] = array(
+    'label' => 'Descripción',
+    'checked' => 1,
+    'enabled' => 1,
+    'position' => 35
+);
+
+// 3. Desaparecemos por completo la columna del Tercero si la clase la inyectó
+if (isset($arrayfields['t.fk_soc'])) {
+    unset($arrayfields['t.fk_soc']);
+}
+
+// 4. Agregamos las nuevas columnas logísticas: Usuario Validador y Fecha de Validación
+$arrayfields['t.fk_user_modif'] = array(
+    'label' => 'Usuario Validador',
+    'checked' => 1,
+    'enabled' => 1,
+    'position' => 50
+);
+
+$arrayfields['t.tms'] = array(
+    'label' => 'Fecha Validación',
+    'checked' => 1,
+    'enabled' => 1,
+    'position' => 55
+);
+
+// Volvemos a ordenar todo el arreglo para asegurar que las posiciones se respeten
+$arrayfields = dol_sort_array($arrayfields, 'position');
 
 // There is several ways to check permission.
 // Set $enablepermissioncheck to 1 to enable a minimum low level of checks
@@ -325,6 +365,11 @@ if (isset($extrafields->attributes[$object->table_element]['label']) && is_array
 $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListFrom', $parameters, $object, $action); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
+if ($object->ismultientitymanaged == 1) {
+	$sql .= " WHERE t.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
+} else {
+	// >>> PROTECCIÓN CRÍTICA MULTIEMPRESA ALTERNATIVA entity.")";
+}
 if ($object->ismultientitymanaged == 1) {
 	$sql .= " WHERE t.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
 } else {
@@ -766,19 +811,71 @@ while ($i < $imaxinloop) {
 	// Store properties in $object
 	$object->setVarsFromFetchObj($obj);
 
-	/*
-	$object->thirdparty = null;
-	if ($obj->fk_soc > 0) {
-		if (!empty($conf->cache['thirdparty'][$obj->fk_soc])) {
-			$companyobj = $conf->cache['thirdparty'][$obj->fk_soc];
-		} else {
-			$companyobj = new Societe($db);
-			$companyobj->fetch($obj->fk_soc);
-			$conf->cache['thirdparty'][$obj->fk_soc] = $companyobj;
-		}
+		// >>> PASO 2: INYECCIÓN INDUSTRIAL DE DATOS LOGÍSTICOS CRUZADOS MULTIEMPRESA <<<
 
-		$object->thirdparty = $companyobj;
-	}*/
+	// 1. Resolver el nombre real del Almacén Origen (Consultado mediante el objeto $obj de tu SELECT)
+	if (!empty($obj->almacen_origen)) {
+		$object->fk_warehouse_origen = $obj->almacen_origen;
+	} else {
+		// Respaldo manual rápido por si el query principal no ejecutó el join
+		$sql_wh_orig = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$object->fk_warehouse_origen;
+		$res_wh_orig = $db->query($sql_wh_orig);
+		if ($res_wh_orig && ($wh_orig_obj = $db->fetch_object($res_wh_orig))) {
+			$object->fk_warehouse_origen = $wh_orig_obj->label;
+		}
+	}
+
+	// 2. Resolver el nombre real de la Entidad Destino (Empresa Externa)
+	if (!empty($object->entidadDestino)) {
+		$sql_ent_dest = "SELECT label FROM ".MAIN_DB_PREFIX."const_entity WHERE rowid = ".(int)$object->entidadDestino;
+		$res_ent_dest = $db->query($sql_ent_dest);
+		if ($res_ent_dest && ($ent_dest_obj = $db->fetch_object($res_ent_dest))) {
+			$object->entidadDestino = $ent_dest_obj->label;
+		} else {
+			$object->entidadDestino = "Entidad ID: ".$object->entidadDestino;
+		}
+	}
+
+	// 3. Resolver el nombre real del Almacén Destino (Saltando dinámicamente a la otra empresa)
+	if (!empty($object->fk_warehouse_destino)) {
+		$sql_wh_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$object->fk_warehouse_destino;
+		
+		// Guardamos el contexto de la empresa actual
+		$ctx_entity_save = $conf->entity;
+		// Forzamos temporalmente a Dolibarr a mirar las tablas de la empresa destino
+		$conf->entity = (int)$obj->entidadDestino; 
+		
+		$res_wh_dest = $db->query($sql_wh_dest);
+		if ($res_wh_dest && ($wh_dest_obj = $db->fetch_object($res_wh_dest))) {
+			$object->fk_warehouse_destino = $wh_dest_obj->label;
+		} else {
+			$object->fk_warehouse_destino = "Almacén ID: ".$object->fk_warehouse_destino;
+		}
+		
+		// REVERSIÓN DE CONTEXTO OBLIGATORIA: Regresamos al operador a la empresa actual de inmediato
+		$conf->entity = $ctx_entity_save;
+	}
+
+	// 4. Resolver el Usuario Validador (Si el estatus es Validado = 1)
+	if ((int)$object->status == 1 && !empty($obj->fk_user_modif)) {
+		require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
+		$userStatic = new User($db);
+		$userStatic->fetch($obj->fk_user_modif);
+		// Asignamos el nombre de usuario formal o su login de Dolibarr
+		$object->fk_user_modif = $userStatic->getNomUrl(1) ? $userStatic->getNomUrl(1) : $userStatic->login;
+	} else {
+		$object->fk_user_modif = '<span class="opacitymedium">-</span>'; // Guion tenue si sigue en borrador
+	}
+
+	// 5. Formatear la Fecha y Hora de Validación (Usa el timestamp tms nativo de la tabla)
+	if ((int)$object->status == 1 && !empty($obj->tms)) {
+		// Transforma el timestamp de la BD en formato estético de Dolibarr (Día, Mes, Año, Hora y Minuto)
+		$object->tms = dol_print_date($db->jdate($obj->tms), 'dayhour');
+	} else {
+		$object->tms = '<span class="opacitymedium">-</span>';
+	}
+	
+	// FIN >>> PASO 2
 
 	if ($mode == 'kanban' || $mode == 'kanbangroupby') {
 		if ($i == 0) {
