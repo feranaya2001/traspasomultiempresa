@@ -928,6 +928,7 @@ while ($i < $imaxinloop) {
 				$totalarray['nbfield']++;
 			}
 		}
+		
 		// Fields
 		foreach ($object->fields as $key => $val) {
 			$cssforfield = (empty($val['csslist']) ? (empty($val['css']) ? '' : $val['css']) : $val['csslist']);
@@ -946,19 +947,88 @@ while ($i < $imaxinloop) {
 			if (in_array($val['type'], array('double(24,8)', 'double(6,3)', 'integer', 'real', 'price')) && !in_array($key, array('id', 'rowid', 'ref', 'status')) && empty($val['arrayofkeyval'])) {
 				$cssforfield .= ($cssforfield ? ' ' : '').'right';
 			}
-			//if (in_array($key, array('fk_soc', 'fk_user', 'fk_warehouse'))) $cssforfield = 'tdoverflowmax100';
 
 			if (!empty($arrayfields['t.'.$key]['checked'])) {
-				print '<td'.($cssforfield ? ' class="'.$cssforfield.((preg_match('/tdoverflow/', $cssforfield) && !in_array($val['type'], array('ip', 'url')) && !is_numeric($object->$key)) ? ' classfortooltip' : '').'"' : '');
-				if (preg_match('/tdoverflow/', $cssforfield) && !in_array($val['type'], array('ip', 'url')) && !is_numeric($object->$key) && !in_array($key, array('ref'))) {
-					print ' title="'.dol_escape_htmltag((string) $object->$key).'"';
-				}
-				print '>';
-				if ($key == 'status') {
-					print $object->getLibStatut(5);
-				} elseif ($key == 'rowid') {
-					print $object->showOutputField($val, $key, (string) $object->id, '');
+				print '<td'.($cssforfield ? ' class="'.$cssforfield.'"' : '').'>';
+				
+				// =========================================================================
+				// >>> DETECCIÓN Y OVERRIDE DE TUS COLUMNAS LOGÍSTICAS PERSONALIZADAS <<<
+				// =========================================================================
+				
+				if ($key == 'fk_warehouse_origen') {
+					// 1. Almacén Origen Directo
+					$sql_wh_orig = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_origen;
+					$res_wh_orig = $db->query($sql_wh_orig);
+					if ($res_wh_orig && ($wh_orig_obj = $db->fetch_object($res_wh_orig))) {
+						print $wh_orig_obj->label;
+					} else {
+						print "Almacén ID: ".$obj->fk_warehouse_origen;
+					}
+					
+				} elseif ($key == 'entidadDestino') {
+					// 2. Entidad Destino Directo
+					$sql_ent_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".(int)$obj->entidadDestino;
+					$res_ent_dest = $db->query($sql_ent_dest);
+					if ($res_ent_dest && ($ent_dest_obj = $db->fetch_object($res_ent_dest))) {
+						print $ent_dest_obj->label;
+					} else {
+						$sql_ent_dest_alt = "SELECT label FROM ".MAIN_DB_PREFIX."const_entity WHERE rowid = ".(int)$obj->entidadDestino;
+						$res_ent_dest_alt = $db->query($sql_ent_dest_alt);
+						if ($res_ent_dest_alt && ($ent_dest_obj_alt = $db->fetch_object($res_ent_dest_alt))) {
+							print $ent_dest_obj_alt->label;
+						} else {
+							print "Empresa N° ".$obj->entidadDestino;
+						}
+					}
+					
+				} elseif ($key == 'fk_warehouse_destino') {
+					// 3. Almacén Destino Directo
+					$sql_wh_dest = "SELECT label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj->fk_warehouse_destino;
+					$res_wh_dest = $db->query($sql_wh_dest);
+					if ($res_wh_dest && ($wh_dest_obj = $db->fetch_object($res_wh_dest))) {
+						print $wh_dest_obj->label;
+					} else {
+						print "Almacén N° ".$obj->fk_warehouse_destino;
+					}
+					
+				} elseif ($key == 'description') {
+					// 4. Descripción larga
+					print !empty($obj->description) ? dol_trunc($obj->description, 40) : '<span class="opacitymedium">-</span>';
+					
+				} elseif ($key == 'fk_user_modif') {
+					// 5. Usuario Validador (Solo si status = 1)
+					if ((int)$obj->status == 1 && !empty($obj->fk_user_modif)) {
+						require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
+						$userStatic = new User($db);
+						if ($userStatic->fetch($obj->fk_user_modif) > 0) {
+							print $userStatic->getNomUrl(1);
+						} else {
+							print "User ID: ".$obj->fk_user_modif;
+						}
+					} else {
+						print '<span class="opacitymedium">No validado</span>';
+					}
+					
+				} elseif ($key == 'tms') {
+					// 6. Fecha de Validación Limpia (Solo si status = 1)
+					if ((int)$obj->status == 1 && !empty($obj->tms) && $obj->tms != '0000-00-00 00:00:00') {
+						print dol_print_date($db->jdate($obj->tms), 'dayhour');
+					} else {
+						print '<span class="opacitymedium">Pendiente</span>';
+					}
+					
+				} elseif ($key == 'status') {
+					// 7. Estado (Ajustamos el Badge estético nativo de Borrador vs Validado)
+					if ((int)$obj->status == 0) {
+						print '<span class="badge badge-dot badge-warning" style="background-color: #f0ad4e; color:white; padding:2px 6px; border-radius:3px;">Borrador</span>';
+					} elseif ((int)$obj->status == 1) {
+						print '<span class="badge badge-dot badge-success" style="background-color: #5cb85c; color:white; padding:2px 6px; border-radius:3px;">Validado</span>';
+					} else {
+						print $object->getLibStatut(5);
+					}
+					
 				} else {
+					// FLUJO NATIVO DE RESPALDO: Para campos como ref, amount, qty, etc.
 					if ($val['type'] == 'html') {
 						print '<div class="small lineheightsmall twolinesmax-normallineheight">';
 					}
@@ -967,24 +1037,14 @@ while ($i < $imaxinloop) {
 						print '</div>';
 					}
 				}
+				
 				print '</td>';
 				if (!$i) {
 					$totalarray['nbfield']++;
 				}
-				if (!empty($val['isameasure']) && $val['isameasure'] == 1) {
-					if (!$i) {
-						$totalarray['pos'][$totalarray['nbfield']] = 't.'.$key;
-					}
-					if (!isset($totalarray['val'])) {
-						$totalarray['val'] = array();
-					}
-					if (!isset($totalarray['val']['t.'.$key])) {
-						$totalarray['val']['t.'.$key] = 0;
-					}
-					$totalarray['val']['t.'.$key] += $object->$key;
-				}
 			}
-		}
+		} // END Fields
+		
 		// Extra fields
 		include DOL_DOCUMENT_ROOT.'/core/tpl/extrafields_list_print_fields.tpl.php';
 		// Fields from hook
