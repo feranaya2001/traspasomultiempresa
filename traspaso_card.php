@@ -956,13 +956,13 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     print '<br><br>';
     print '<!-- Inicio Bloque Partidas -->';
     print '<div class="div-table-responsive-no-min">';
-    
-    if (true) {
-        print '<form name="addproduct" id="addproduct" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'" method="POST">';
-        print '<input type="hidden" name="token" value="' . newToken().'">';
-        print '<input type="hidden" name="action" value="addline">';
-        print '<input type="hidden" name="id" value="' . $object->id.'">';
-    }
+        
+	if ($object->status == $object::STATUS_DRAFT) {
+		print '<form name="addproduct" id="addproduct" action="'.$_SERVER["PHP_SELF"].'?id='.$object->id.'" method="POST">';
+		print '<input type="hidden" name="token" value="' . newToken().'">';
+		print '<input type="hidden" name="action" value="addline">';
+		print '<input type="hidden" name="id" value="' . $object->id.'">';
+	}	
 
         print '<table class="noborder noshadow centpercent">';
     
@@ -975,8 +975,8 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     print '<td class="center" width="120">Acción</td>';
     print '</tr>';
 
-    // 2. FILA DE CAPTURA EN BLANCO (Colocada arriba para mejor UX)
-    if (true) {
+    // 2. FILA DE CAPTURA EN BLANCO (Colocada arriba para mejor UX)    
+	if ($object->status == $object::STATUS_DRAFT) {
         print '<tr class="nodrag nodrop" style="background: #fdfdfd; border-bottom: 2px solid #ddd;">';
         
         // Selector de productos con buscador AJAX
@@ -1035,12 +1035,13 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         print '<td class="right">' . price($linea_guardada->amount, 0, '', 1, -1, -1, $conf->currency) . '</td>';
         
         // Botón Eliminar
-        print '<td class="center">';
-        print '<button type="button" class="button button-delete-line" data-id="'.$linea_guardada->rowid.'" style="padding: 2px 5px; background: none; border: none; color: #a40000; cursor: pointer;">';
-        print img_delete().' Eliminar';
-        print '</button>';
-        print '</td>';
-        print '</tr>';
+		print '<td class="center">';
+		if ($object->status == $object::STATUS_DRAFT) {
+    		print '<button type="button" class="button button-delete-line" data-id="'.$linea_guardada->rowid.'" style="padding: 2px 5px; background: none; border: none; color: #a40000; cursor: pointer;">';
+    		print img_delete().' Eliminar';
+    		print '</button>';
+		}
+		print '</td>';
     }
 
     // 4. FILA ABSOLUTA DE TOTALES (Siempre al final)
