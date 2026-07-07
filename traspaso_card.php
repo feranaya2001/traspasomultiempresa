@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.9
+ * Version: 1.0.10
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -277,12 +277,13 @@ if (empty($reshook)) {
 		if (!$error) {
 			$db->begin(); // Transacción SQL de seguridad
 
-			// A) Actualizar el estatus del documento padre a 1 (Validado)
-			$sql_update_status = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso SET status = 1 WHERE rowid = ".$id_traspaso;
+			// A) Actualizar el estatus del documento padre a 1 (Validado) y asignar folio definitivo
+			$newref = $object->getNextNumRef();
+			$sql_update_status = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso SET status = 1, ref = '".$db->escape($newref)."' WHERE rowid = ".$id_traspaso;
 			$res_status = $db->query($sql_update_status);
 
-			if ($res_status) {
-				
+			if ($res_status) {				
+				$object->ref = $newref; // Actualizamos el objeto en memoria para que el resto del bloque use el folio correcto
 				// Descripción clara para las tarjetas de stock nativas de Dolibarr
 				$desc_movimiento = "Traspaso Multiempresa Ref: ".$object->ref;
 				$fk_origin       = (int) $object->id;
