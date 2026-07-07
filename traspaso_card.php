@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.8
+ * Version: 1.0.9
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -204,6 +204,12 @@ if (empty($reshook)) {
 	}
 
 	$triggermodname = 'TRASPASOMULTIEMPRESA_MYOBJECT_MODIFY'; // Name of trigger action code to execute when we modify record
+
+	// Seguridad: bloquear altas/bajas/cambios de línea si el traspaso ya no está en borrador
+	if (in_array($action, array('addline', 'updateline', 'deleteline', 'confirm_deleteline')) && $object->status != $object::STATUS_DRAFT) {
+		setEventMessages('No se permiten cambios en un traspaso ya validado.', null, 'errors');
+		$action = '';
+	}
 
 	// Actions cancel, add, update, update_extras, confirm_validate, confirm_delete, confirm_deleteline, confirm_clone, confirm_close, confirm_setdraft, confirm_reopen
 	include DOL_DOCUMENT_ROOT.'/core/actions_addupdatedelete.inc.php';
