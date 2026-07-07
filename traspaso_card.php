@@ -211,6 +211,12 @@ if (empty($reshook)) {
 		$action = '';
 	}
 
+	// Seguridad: una vez validado, no se permite regresar a borrador
+	if ($action == 'confirm_setdraft' && $object->status == $object::STATUS_VALIDATED) {
+		setEventMessages('No se permite regresar a borrador un traspaso ya validado.', null, 'errors');
+		$action = '';
+	}
+
 	// Actions cancel, add, update, update_extras, confirm_validate, confirm_delete, confirm_deleteline, confirm_clone, confirm_close, confirm_setdraft, confirm_reopen
 	include DOL_DOCUMENT_ROOT.'/core/actions_addupdatedelete.inc.php';
 	// =========================================================================
@@ -1174,15 +1180,18 @@ jQuery(document).ready(function() {
 			// Send
 			if (empty($user->socid)) {
 				print dolGetButtonAction('', $langs->trans('SendMail'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=presend&token='.newToken().'&mode=init#formmailbeforetitle');
-			}
+			}			
 
 			// Back to draft
 			if ($object->status == $object::STATUS_VALIDATED) {
-				print dolGetButtonAction('', $langs->trans('SetToDraft'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=confirm_setdraft&confirm=yes&token='.newToken(), '', $permissiontoadd);
+				// Deshabilitado a propósito: una vez validado, no se permite regresar a borrador.
+				// print dolGetButtonAction('', $langs->trans('SetToDraft'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=confirm_setdraft&confirm=yes&token='.newToken(), '', $permissiontoadd);
 			}
 
 			// Modify
-			print dolGetButtonAction('', $langs->trans('Modify'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=edit&token='.newToken(), '', $permissiontoadd);
+			if ($object->status == $object::STATUS_DRAFT) {
+				print dolGetButtonAction('', $langs->trans('Modify'), 'default', $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=edit&token='.newToken(), '', $permissiontoadd);
+			}						
 
 			// Validate Ori
 			/*
@@ -1234,9 +1243,11 @@ jQuery(document).ready(function() {
 			if ($conf->use_javascript_ajax && empty($conf->dol_use_jmobile)) {	// We can use preloaded confirm if not jmobile
 				$deleteUrl = '';
 				$buttonId = 'action-delete';
-			}
-			$params = array();
-			print dolGetButtonAction('', $langs->trans("Delete"), 'delete', $deleteUrl, $buttonId, $permissiontodelete, $params);
+			}			
+			if ($object->status == $object::STATUS_DRAFT) {
+				$params = array();
+				print dolGetButtonAction('', $langs->trans("Delete"), 'delete', $deleteUrl, $buttonId, $permissiontodelete, $params);
+			}		
 		}
 		print '</div>'."\n";
 	}
