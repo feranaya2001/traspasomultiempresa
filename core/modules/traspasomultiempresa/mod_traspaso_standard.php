@@ -3,7 +3,7 @@
  * Copyright (C) 2005-2009	Regis Houssin				<regis.houssin@inodbox.com>
  * Copyright (C) 2024		MDW							<mdeweerd@users.noreply.github.com>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Ver 1.0.1
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -41,7 +41,7 @@ class mod_traspaso_standard extends ModeleNumRefTraspaso
 	/**
 	 * @var string
 	 */
-	public $prefix = 'MYOBJECT';
+	public $prefix = 'TRMU';
 
 	/**
 	 * @var string Error code (or message)
@@ -73,9 +73,8 @@ class mod_traspaso_standard extends ModeleNumRefTraspaso
 	 */
 	public function getExample()
 	{
-		return $this->prefix."0501-0001";
+		return $this->prefix."2607-000001";
 	}
-
 
 	/**
 	 *  Checks if the numbers already in the database do not
@@ -156,10 +155,10 @@ class mod_traspaso_standard extends ModeleNumRefTraspaso
 		$date = $object->date_creation;
 		$yymm = dol_print_date($date, "%y%m");
 
-		if ($max >= (pow(10, 4) - 1)) {
-			$num = $max + 1; // If counter > 9999, we do not format on 4 chars, we take number as it is
+		if ($max >= (pow(10, 6) - 1)) {
+ 		   $num = $max + 1; // If counter > 999999, we do not format on 6 chars, we take number as it is
 		} else {
-			$num = sprintf("%04u", $max + 1);
+    		$num = sprintf("%06u", $max + 1);
 		}
 
 		dol_syslog("mod_traspaso_standard::getNextValue return ".$this->prefix.$yymm."-".$num);
