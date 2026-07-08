@@ -1087,7 +1087,8 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 
 		if ($showaddress) {
 			// Sender properties
-			$carac_emetteur = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
+			//$carac_emetteur = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
+			$carac_emetteur = "Tienda que envía:\n".$tienda_origen."\n\nAlmacén que Envía:\n".$almacen_origen;
 
 			// Show sender
 			$posy = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
@@ -1099,7 +1100,6 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 
 			$hautcadre = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
 			$widthrecbox = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 82;
-
 
 			// Show sender frame
 			if (!getDolGlobalString('MAIN_PDF_NO_SENDER_FRAME')) {
@@ -1124,7 +1124,8 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			// Show sender information
 			$pdf->SetXY($posx + 2, $posy);
 			$pdf->SetFont('', '', $default_font_size - 1);
-			$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
+			//$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
+			$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($carac_emetteur), 0, $ltrdirection);
 
 			// ====================================================================
             // 1. PRIMERO: OBTENER DATOS DE TIENDAS Y ALMACENES DIRECTO DE BD
@@ -1166,8 +1167,9 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $tienda_destino = $obj_ent->label;
                     }
             }
-            // 3. Obtener Almacén Destino
+			// 3. Obtener Almacén Destino
             if ($id_almacen_dest > 0) {
+                    // Forzamos un query directo para saltarnos cualquier filtro automático de entidad activa de Dolibarr
                     $sql_wh = "SELECT ref, label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$id_almacen_dest);
                     $res_wh = $this->db->query($sql_wh);
                     if ($res_wh && $this->db->num_rows($res_wh) > 0) {
