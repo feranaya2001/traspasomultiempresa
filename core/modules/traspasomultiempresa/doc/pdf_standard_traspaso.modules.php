@@ -1085,48 +1085,6 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$top_shift = $pdf->getY() - $current_y;
 		}
 
-		if ($showaddress) {
-			// Sender properties
-			//$carac_emetteur = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
-			$carac_emetteur = "Tienda que envía:\n".$tienda_origen."\n\nAlmacén que Envía:\n".$almacen_origen;
-
-			// Show sender
-			$posy = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
-			$posy += $top_shift;
-			$posx = $this->marge_gauche;
-			if (getDolGlobalInt('MAIN_INVERT_SENDER_RECIPIENT')) {
-				$posx = $this->page_largeur - $this->marge_droite - 80;
-			}
-
-			$hautcadre = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
-			$widthrecbox = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 82;
-
-			// Show sender frame
-			if (!getDolGlobalString('MAIN_PDF_NO_SENDER_FRAME')) {
-				$pdf->SetTextColor(0, 0, 0);
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$pdf->SetXY($posx, $posy - 5);
-				$pdf->MultiCell($widthrecbox, 5, $outputlangs->transnoentities("BillFrom").":", 0, $ltrdirection);
-				$pdf->SetXY($posx, $posy);
-				$pdf->SetFillColor(230, 230, 230);
-				$pdf->MultiCell($widthrecbox, $hautcadre, "", 0, 'R', true);
-				$pdf->SetTextColor(0, 0, 60);
-			}
-
-			// Show sender name
-			if (!getDolGlobalString('MAIN_PDF_HIDE_SENDER_NAME')) {
-				$pdf->SetXY($posx + 2, $posy + 3);
-				$pdf->SetFont('', 'B', $default_font_size);
-				$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, $ltrdirection);
-				$posy = $pdf->getY();
-			}
-
-			// Show sender information
-			$pdf->SetXY($posx + 2, $posy);
-			$pdf->SetFont('', '', $default_font_size - 1);
-			//$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
-			$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($carac_emetteur), 0, $ltrdirection);
-
 			// ====================================================================
             // 1. PRIMERO: OBTENER DATOS DE TIENDAS Y ALMACENES DIRECTO DE BD
             // ====================================================================
@@ -1177,6 +1135,51 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $almacen_destino = $obj_wh->ref." ".$obj_wh->label;
                     }
             }
+
+
+		if ($showaddress) {
+			// Sender properties
+			//$carac_emetteur = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
+			$carac_emetteur = "Tienda que envía:\n".$tienda_origen."\n\nAlmacén que Envía:\n".$almacen_origen;
+
+			// Show sender
+			$posy = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
+			$posy += $top_shift;
+			$posx = $this->marge_gauche;
+			if (getDolGlobalInt('MAIN_INVERT_SENDER_RECIPIENT')) {
+				$posx = $this->page_largeur - $this->marge_droite - 80;
+			}
+
+			$hautcadre = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
+			$widthrecbox = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 82;
+
+			// Show sender frame
+			if (!getDolGlobalString('MAIN_PDF_NO_SENDER_FRAME')) {
+				$pdf->SetTextColor(0, 0, 0);
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$pdf->SetXY($posx, $posy - 5);
+				$pdf->MultiCell($widthrecbox, 5, $outputlangs->transnoentities("BillFrom").":", 0, $ltrdirection);
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetFillColor(230, 230, 230);
+				$pdf->MultiCell($widthrecbox, $hautcadre, "", 0, 'R', true);
+				$pdf->SetTextColor(0, 0, 60);
+			}
+
+			// Show sender name
+			if (!getDolGlobalString('MAIN_PDF_HIDE_SENDER_NAME')) {
+				$pdf->SetXY($posx + 2, $posy + 3);
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, $ltrdirection);
+				$posy = $pdf->getY();
+			}
+
+			// Show sender information
+			$pdf->SetXY($posx + 2, $posy);
+			$pdf->SetFont('', '', $default_font_size - 1);
+			//$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
+			$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($carac_emetteur), 0, $ltrdirection);
+
+
             // ====================================================================
             // 2. SEGUNDO: ASIGNAR LAS VARIABLES DE TEXTO
             // ====================================================================
