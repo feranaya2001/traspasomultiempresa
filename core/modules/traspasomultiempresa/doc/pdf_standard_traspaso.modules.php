@@ -203,7 +203,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 		// ---> FORZAR CARGA DE LÍNEAS INTER-COMPAÑÍA <---
             if (empty($nblines) || !is_array($object->lines)) {
                     $object->lines = array();
-                    $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
+					$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->rowid);
                     $res_det = $this->db->query($sql_det);
                     if ($res_det) {
                             require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
@@ -1129,9 +1129,9 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
             $id_entidad_dest = 0;
             $id_almacen_orig = 0;
             $id_almacen_dest = 0;
-
-            if (!empty($object->id)) {
-                    $sql_core = "SELECT fk_warehouse_origen, entidadDestino, fk_warehouse_destino FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso WHERE rowid = ".((int)$object->id);
+            
+			if (!empty($object->rowid)) {
+        			$sql_core = "SELECT fk_warehouse_origen, entidadDestino, fk_warehouse_destino FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso WHERE rowid = ".((int)$object->rowid);
                     $res_core = $this->db->query($sql_core);
                     if ($res_core && $this->db->num_rows($res_core) > 0) {
                             $obj_core = $this->db->fetch_object($res_core);
