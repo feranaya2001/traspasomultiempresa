@@ -199,7 +199,39 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$outputlangsbis->loadLangs($langfiles);
 		}
 
-		$nblines = (is_array($object->lines) ? count($object->lines) : 0);
+		//$nblines = (is_array($object->lines) ? count($object->lines) : 0);
+		// ---> FORZAR CARGA DE LÍNEAS INTER-COMPAÑÍA <---
+            if (empty($nblines) || !is_array($object->lines)) {
+                    $object->lines = array();
+                    $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
+                    $res_det = $this->db->query($sql_det);
+                    if ($res_det) {
+                            require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
+                            // Cargamos la clase de producto para que el PDF pueda pintar las descripciones, códigos y detalles
+                            require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+                            
+                            while ($obj_det = $this->db->fetch_object($res_det)) {
+                                    // Crear un objeto de línea compatible con lo que espera el bucle del PDF de Dolibarr
+                                    $line = new stdClass();
+                                    $line->rowid = $obj_det->rowid;
+                                    $line->qty = $obj_det->qty;
+                                    $line->desc = $obj_det->description;
+                                    
+                                    // Traer los datos técnicos del producto de forma aislada
+                                    $prodM = new Product($this->db);
+                                    if ($prodM->fetch($obj_det->fk_product) > 0) {
+                                            $line->fk_product = $obj_det->fk_product;
+                                            $line->ref = $prodM->ref;
+                                            $line->label = $prodM->label;
+                                            // Enlazar el producto completo a la línea como requiere el motor de Dolibarr
+                                            $line->product = $prodM;
+                                    }
+                                    
+                                    $object->lines[] = $line;
+                            }
+                            $nblines = count($object->lines);
+                    }
+            }		
 
 		$hidetop = 0;
 		if (getDolGlobalString('MAIN_PDF_DISABLE_COL_HEAD_TITLE')) {
@@ -1135,7 +1167,6 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $almacen_destino = $obj_wh->ref." ".$obj_wh->label;
                     }
             }
-
 
 		if ($showaddress) {
 			// Sender properties
