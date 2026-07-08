@@ -339,29 +339,39 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 						if ($res_det) {
 								require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 								while ($obj_det = $this->db->fetch_object($res_det)) {
+									// 1. Usar la clase nativa del módulo en lugar de stdClass
+									if (class_exists('Traspasoline')) {
+										$line = new Traspasoline($this->db);
+										} else {
 										$line = new stdClass();
-										$line->rowid = $obj_det->rowid;
-										$line->qty = $obj_det->qty;
-										$line->desc = !empty($obj_det->description) ? $obj_det->description : '';
-										$line->qty_asked = $obj_det->qty;
+									}
 
-										// Propiedades requeridas por las columnas financieras del reporte
-										$line->subprice = 0;
-										$line->total_ht = 0;
-										$line->total_tva = 0;
-										$line->total_ttc = 0;
-										$line->tva_tx = 0;
+									$line->rowid = $obj_det->rowid;
+									$line->qty = $obj_det->qty;
+									$line->qty_asked = $obj_det->qty;
+									$line->description = !empty($obj_det->description) ? $obj_det->description : '';
 
-										$prodM = new Product($this->db);
-										if ($prodM->fetch($obj_det->fk_product) > 0) {
-												$line->fk_product = $obj_det->fk_product;
-												$line->ref = $prodM->ref;
-												$line->label = $prodM->label;
-												$line->product = $prodM;
-												if (empty($line->desc)) {
-														$line->desc = $prodM->label;
-												}
+									// Propiedades requeridas por las columnas financieras y de renderizado del reporte
+									$line->subprice = 0;
+									$line->total_ht = 0;
+									$line->total_tva = 0;
+									$line->total_ttc = 0;
+									$line->tva_tx = 0;
+									$line->remise_percent = 0;
+
+									$prodM = new Product($this->db);
+									if ($prodM->fetch($obj_det->fk_product) > 0) {
+										$line->fk_product = $obj_det->fk_product;
+										$line->ref = $prodM->ref;
+										$line->label = $prodM->label;
+										$line->product = $prodM;
+
+										// Dolibarr suele usar ->desc o ->description según la versión del PDF
+										$line->desc = !empty($line->description) ? $line->description : $prodM->label;
+										if (empty($line->description)) {
+											$line->description = $prodM->label;
 										}
+									}
 										$object->lines[] = $line;
 								}
 						}
