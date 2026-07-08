@@ -217,16 +217,14 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                                     $line->qty = $obj_det->qty;
                                     $line->desc = $obj_det->description;
                                     
-                                    // Traer los datos técnicos del producto de forma aislada
-                                    $prodM = new Product($this->db);
+                                    // Traer los datos técnicos del producto de forma aislada                                    
+									$prodM = new Product($this->db);
                                     if ($prodM->fetch($obj_det->fk_product) > 0) {
                                             $line->fk_product = $obj_det->fk_product;
                                             $line->ref = $prodM->ref;
-                                            $line->label = $prodM->label;
-                                            // Enlazar el producto completo a la línea como requiere el motor de Dolibarr
+                                            $line->label = $prodM->label; // El campo en el objeto producto SÍ es label
                                             $line->product = $prodM;
-                                    }
-                                    
+                                    }                                    
                                     $object->lines[] = $line;
                             }
                             $nblines = count($object->lines);
@@ -1159,12 +1157,13 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
             }
 			// 3. Obtener Almacén Destino
             if ($id_almacen_dest > 0) {
-                    // Forzamos un query directo para saltarnos cualquier filtro automático de entidad activa de Dolibarr
-                    $sql_wh = "SELECT ref, label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$id_almacen_dest);
+                    // Cambiamos 'label' por 'description' que es la columna real en Dolibarr
+                    $sql_wh = "SELECT ref, description FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$id_almacen_dest);
                     $res_wh = $this->db->query($sql_wh);
                     if ($res_wh && $this->db->num_rows($res_wh) > 0) {
                             $obj_wh = $this->db->fetch_object($res_wh);
-                            $almacen_destino = $obj_wh->ref." ".$obj_wh->label;
+                            // Usamos description aquí
+                            $almacen_destino = $obj_wh->ref." ".$obj_wh->description;
                     }
             }
 
