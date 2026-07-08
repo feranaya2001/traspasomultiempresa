@@ -1138,7 +1138,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
             $id_entidad_dest = 0;
             $id_almacen_orig = 0;
             $id_almacen_dest = 0;
-			
+
             if (!empty($object->id)) {
                     $sql_core = "SELECT fk_warehouse_origen, entidadDestino, fk_warehouse_destino FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso WHERE rowid = ".((int)$object->id);
                     $res_core = $this->db->query($sql_core);
@@ -1198,16 +1198,16 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			} else {
 				$thirdparty = $object->thirdparty;
 			}
-
-			if (is_object($thirdparty)) {
+			
+		/*	if (is_object($thirdparty)) {
 				$carac_client_name = pdfBuildThirdpartyName($thirdparty, $outputlangs);
 			} else {
 				$carac_client_name = null;
-			}
-
+			} 
+		
 			$mode = 'target';
 			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), ($usecontact ? 1 : 0), $mode, $object);
-
+		*/
 			// Show recipient
 			$widthrecbox = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;
 			if ($this->page_largeur < 210) {
