@@ -337,7 +337,9 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 						$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
 						$res_det = $this->db->query($sql_det);
 						if ($res_det) {
-								require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+								// ---> INCLUIR LA CLASE DE LA LÍNEA DEL MÓDULO <---
+                                require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
+                                require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 								while ($obj_det = $this->db->fetch_object($res_det)) {
 									// 1. Usar la clase nativa del módulo en lugar de stdClass
 									if (class_exists('Traspasoline')) {
