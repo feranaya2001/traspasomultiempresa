@@ -201,7 +201,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 
 		//$nblines = (is_array($object->lines) ? count($object->lines) : 0);		
 		// ---> FORZAR CARGA DE LÍNEAS INTER-COMPAÑÍA <---
-            if (empty($object->lines) || count($object->lines) == 0) {
+        /*  if (empty($object->lines) || count($object->lines) == 0) {
                     $object->lines = array();
                     if (!empty($object->id)) {
                             $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
@@ -226,7 +226,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                                     }
                             }
                     }
-            }
+            } */
             $nblines = (is_array($object->lines) ? count($object->lines) : 0);
 
 		$hidetop = 0;
@@ -330,6 +330,44 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 
 				// Set nblines with the new lines content after hook
 				$nblines = (is_array($object->lines) ? count($object->lines) : 0);
+
+				// ---> INYECTOR FORZADO DE ARTÍCULOS INTER-COMPAÑÍA <---
+				$object->lines = array();
+				if (!empty($object->id)) {
+						$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
+						$res_det = $this->db->query($sql_det);
+						if ($res_det) {
+								require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+								while ($obj_det = $this->db->fetch_object($res_det)) {
+										$line = new stdClass();
+										$line->rowid = $obj_det->rowid;
+										$line->qty = $obj_det->qty;
+										$line->desc = !empty($obj_det->description) ? $obj_det->description : '';
+										$line->qty_asked = $obj_det->qty;
+
+										// Propiedades requeridas por las columnas financieras del reporte
+										$line->subprice = 0;
+										$line->total_ht = 0;
+										$line->total_tva = 0;
+										$line->total_ttc = 0;
+										$line->tva_tx = 0;
+
+										$prodM = new Product($this->db);
+										if ($prodM->fetch($obj_det->fk_product) > 0) {
+												$line->fk_product = $obj_det->fk_product;
+												$line->ref = $prodM->ref;
+												$line->label = $prodM->label;
+												$line->product = $prodM;
+												if (empty($line->desc)) {
+														$line->desc = $prodM->label;
+												}
+										}
+										$object->lines[] = $line;
+								}
+						}
+				}
+				$nblines = count($object->lines);
+				// ---> FIN DEL INYECTOR <---
 
 				// Create pdf instance
 				$pdf = pdf_getInstance($this->format);
