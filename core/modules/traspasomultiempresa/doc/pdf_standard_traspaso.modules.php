@@ -338,19 +338,25 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                                         $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
                                         $res_det = $this->db->query($sql_det);
                                     if ($res_det) {
-                                        // 1. Forzamos la inclusión del archivo de clases del módulo
                                         require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
                                         require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
                                         
                                         while ($obj_det = $this->db->fetch_object($res_det)) {
                                                 
-                                                // 2. Instanciamos la clase real con mayúsculas exactas
+                                                // CLASE ANÓNIMA QUE EXTIENDE DE TRASPASOLINE PARA INTERCEPTAR EL MÉTODO QUE FALTA
                                                 if (class_exists('TraspasoLine')) {
-                                                        $line = new TraspasoLine($this->db);
+                                                        $line = new class($this->db) extends TraspasoLine {
+                                                                public function get_prev_progress() {
+                                                                        return 0; // O lo que necesite el reporte, usualmente 0 por ciento
+                                                                }
+                                                        };
                                                 } else {
-                                                        // Respaldo por si acaso, usando la clase base de líneas de Dolibarr
                                                         require_once DOL_DOCUMENT_ROOT.'/core/class/commonline.class.php';
-                                                        $line = new CommonLine($this->db);
+                                                        $line = new class($this->db) extends CommonLine {
+                                                                public function get_prev_progress() {
+                                                                        return 0;
+                                                                }
+                                                        };
                                                 }
                                                 
                                                 $line->rowid = $obj_det->rowid;
