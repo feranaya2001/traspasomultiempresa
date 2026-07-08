@@ -337,52 +337,58 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                                         // CONSULTA CORREGIDA CON TU ESQUEMA REAL
                                         $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
                                         $res_det = $this->db->query($sql_det);
-                                        if ($res_det) {
-                                                require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+                                    if ($res_det) {
+                                        // 1. Forzamos la inclusión del archivo de clases del módulo
+                                        require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
+                                        require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+                                        
+                                        while ($obj_det = $this->db->fetch_object($res_det)) {
                                                 
-                                                while ($obj_det = $this->db->fetch_object($res_det)) {
-                                                        // Instanciamos usando el nombre real del objeto de la línea
-                                                        if (class_exists('Traspasomultiempresaline')) {
-                                                                $line = new Traspasomultiempresaline($this->db);
-                                                        } else {
-                                                                $line = new stdClass();
-                                                        }
-                                                        
-                                                        $line->rowid = $obj_det->rowid;
-                                                        $line->qty = $obj_det->qty;
-                                                        $line->qty_asked = $obj_det->qty;
-                                                        $line->description = !empty($obj_det->description) ? $obj_det->description : '';
-
-                                                        // Propiedades requeridas para evitar errores en las celdas financieras del PDF
-                                                        $line->subprice = 0;
-                                                        $line->total_ht = 0;
-                                                        $line->total_tva = 0;
-                                                        $line->total_ttc = 0;
-                                                        $line->tva_tx = 0;
-                                                        $line->remise_percent = 0;
-
-                                                        $prodM = new Product($this->db);
-                                                        if ($prodM->fetch($obj_det->fk_product) > 0) {
-                                                                $line->fk_product = $obj_det->fk_product;
-                                                                $line->ref = $prodM->ref;
-                                                                $line->label = $prodM->label;
-                                                                $line->product = $prodM;
-                                                                
-                                                                $line->desc = !empty($line->description) ? $line->description : $prodM->label;
-                                                                if (empty($line->description)) {
-                                                                        $line->description = $prodM->label;
-                                                                }
-                                                        }
-                                                        $object->lines[] = $line;
+                                                // 2. Instanciamos la clase real con mayúsculas exactas
+                                                if (class_exists('TraspasoLine')) {
+                                                        $line = new TraspasoLine($this->db);
+                                                } else {
+                                                        // Respaldo por si acaso, usando la clase base de líneas de Dolibarr
+                                                        require_once DOL_DOCUMENT_ROOT.'/core/class/commonline.class.php';
+                                                        $line = new CommonLine($this->db);
                                                 }
+                                                
+                                                $line->rowid = $obj_det->rowid;
+                                                $line->qty = $obj_det->qty;
+                                                $line->qty_asked = $obj_det->qty;
+                                                $line->description = !empty($obj_det->description) ? $obj_det->description : '';
+
+                                                // Propiedades requeridas para el renderizado del PDF
+                                                $line->subprice = 0;
+                                                $line->total_ht = 0;
+                                                $line->total_tva = 0;
+                                                $line->total_ttc = 0;
+                                                $line->tva_tx = 0;
+                                                $line->remise_percent = 0;
+                                                $line->special_code = 0; 
+
+                                                $prodM = new Product($this->db);
+                                                if ($prodM->fetch($obj_det->fk_product) > 0) {
+                                                        $line->fk_product = $obj_det->fk_product;
+                                                        $line->ref = $prodM->ref;
+                                                        $line->label = $prodM->label;
+                                                        $line->product = $prodM;
+                                                        
+                                                        $line->desc = !empty($line->description) ? $line->description : $prodM->label;
+                                                        if (empty($line->description)) {
+                                                                $line->description = $prodM->label;
+                                                        }
+                                                }
+                                                $object->lines[] = $line;
                                         }
+                                	}
                                 }
                                 $nblines = count($object->lines);
                 // ---> DEPURACIÓN TEMPORAL <---
-                var_dump("ID TRASPASO: ".$object->id);
-                var_dump("CANTIDAD LÍNEAS: ".$nblines);
-                var_dump($object->lines);
-                die();
+                // var_dump("ID TRASPASO: ".$object->id);
+                // var_dump("CANTIDAD LÍNEAS: ".$nblines);
+                // var_dump($object->lines);
+                // die();
 				// ---> FIN DEL INYECTOR <---
 
 				// Create pdf instance
