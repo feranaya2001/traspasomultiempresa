@@ -12,7 +12,7 @@
  * Copyright (C) 2024-2025	MDW							<mdeweerd@users.noreply.github.com>
  * Copyright (C) 2024		Alexandre Spangaro			<alexandre@inovea-conseil.com>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Ver. 1.0.1
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -336,8 +336,9 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				$pdf->SetTitle($outputlangs->convToOutputCharset($object->ref));
 				$pdf->SetSubject($outputlangs->transnoentities("PdfTitle"));
 				$pdf->SetCreator("Dolibarr ".DOL_VERSION);
-				$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));
-				$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref)." ".$outputlangs->transnoentities("PdfTitle")." ".$outputlangs->convToOutputCharset($object->thirdparty->name));
+				$pdf->SetAuthor($outputlangs->convToOutputCharset($user->getFullName($outputlangs)));				
+				//$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref)." ".$outputlangs->transnoentities("PdfTitle")." ".$outputlangs->convToOutputCharset($object->thirdparty->name));
+				$pdf->SetKeyWords($outputlangs->convToOutputCharset($object->ref)." ".$outputlangs->transnoentities("PdfTitle")." ".(!empty($object->thirdparty->name) ? $outputlangs->convToOutputCharset($object->thirdparty->name) : ''));
 				if (getDolGlobalString('MAIN_DISABLE_PDF_COMPRESSION')) {
 					$pdf->SetCompression(false);
 				}
@@ -1125,12 +1126,53 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
 
+			// ====================================================================
+			// 1. PRIMERO: OBTENER DATOS DE TIENDAS Y ALMACENES (Mueve tu bloque aquí)
+			// ====================================================================
+			$tienda_origen = "AJIGSA MATRIZ";
+			$almacen_origen = "NO DEFINIDO";
+			$tienda_destino = "NO DEFINIDO";
+			$almacen_destino = "NO DEFINIDO";
+			// 1. Obtener Almacén Origen
+			if (!empty($object->fk_warehouse_origen)) {
+					require_once DOL_DOCUMENT_ROOT.'/product/stock/class/entrepot.class.php';
+					$entrepotM = new Entrepot($this->db);
+					if ($entrepotM->fetch($object->fk_warehouse_origen) > 0) {
+							$almacen_origen = $entrepotM->ref." ".$entrepotM->libelle;
+					}
+			}
+			// 2. Obtener Tienda Destino (Entidad) y Almacén Destino
+			if (!empty($object->entidadDestino)) {
+					$sql_ent = "SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".((int)$object->entidadDestino);
+					$res_ent = $this->db->query($sql_ent);
+					if ($res_ent && $this->db->num_rows($res_ent) > 0) {
+							$obj_ent = $this->db->fetch_object($res_ent);
+							$tienda_destino = $obj_ent->label;
+					}
+			}
+			if (!empty($object->fk_warehouse_destino)) {
+					$sql_wh = "SELECT ref, label FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$object->fk_warehouse_destino);
+					$res_wh = $this->db->query($sql_wh);
+					if ($res_wh && $this->db->num_rows($res_wh) > 0) {
+							$obj_wh = $this->db->fetch_object($res_wh);
+							$almacen_destino = $obj_wh->ref." ".$obj_wh->label;
+					}
+			}
+			// ====================================================================
+			// 2. SEGUNDO: ASIGNAR LAS VARIABLES DE TEXTO (Justo después de los queries)
+			// ====================================================================
+			// Forzar los textos de destino basados en nuestro query inter-compañía
+			$carac_client_name = $outputlangs->convToOutputCharset("Tienda Destino: ".$tienda_destino);
+			$carac_client = $outputlangs->convToOutputCharset("Almacén Destino:\n".$almacen_destino);
+			// ====================================================================
+			// 3. TERCERO: CÓDIGO LOGÍSTICO COMPLEMENTARIO (El resto de Dolibarr)
+			// ====================================================================
 			// If BILLING contact defined, we use it
 			$usecontact = false;
 			$arrayidcontact = $object->getIdContact('external', 'BILLING');
 			if (count($arrayidcontact) > 0) {
-				$usecontact = true;
-				$result = $object->fetch_contact($arrayidcontact[0]);
+					$usecontact = true;
+					$result = $object->fetch_contact($arrayidcontact[0]);
 			}
 
 			// Recipient name
