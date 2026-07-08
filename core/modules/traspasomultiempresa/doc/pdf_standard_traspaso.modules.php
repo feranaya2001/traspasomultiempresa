@@ -171,7 +171,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 	{
 		// phpcs:enable
 		global $user, $langs, $conf, $mysoc, $hookmanager, $nblines;
-
+		dol_syslog("DEPURACION TRASPASO: " . json_encode($object));
 		dol_syslog("write_file outputlangs->defaultlang=".(is_object($outputlangs) ? $outputlangs->defaultlang : 'null'));
 
 		if (!is_object($outputlangs)) {
@@ -199,37 +199,35 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$outputlangsbis->loadLangs($langfiles);
 		}
 
-		//$nblines = (is_array($object->lines) ? count($object->lines) : 0);
+		//$nblines = (is_array($object->lines) ? count($object->lines) : 0);		
 		// ---> FORZAR CARGA DE LÍNEAS INTER-COMPAÑÍA <---
-            if (empty($nblines) || !is_array($object->lines)) {
+            if (empty($object->lines) || count($object->lines) == 0) {
                     $object->lines = array();
-					$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->rowid);
-                    $res_det = $this->db->query($sql_det);
-                    if ($res_det) {
-                            require_once DOL_DOCUMENT_ROOT.'/core/lib/pdf.lib.php';
-                            // Cargamos la clase de producto para que el PDF pueda pintar las descripciones, códigos y detalles
-                            require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
-                            
-                            while ($obj_det = $this->db->fetch_object($res_det)) {
-                                    // Crear un objeto de línea compatible con lo que espera el bucle del PDF de Dolibarr
-                                    $line = new stdClass();
-                                    $line->rowid = $obj_det->rowid;
-                                    $line->qty = $obj_det->qty;
-                                    $line->desc = $obj_det->description;
-                                    
-                                    // Traer los datos técnicos del producto de forma aislada                                    
-									$prodM = new Product($this->db);
-                                    if ($prodM->fetch($obj_det->fk_product) > 0) {
-                                            $line->fk_product = $obj_det->fk_product;
-                                            $line->ref = $prodM->ref;
-                                            $line->label = $prodM->label; // El campo en el objeto producto SÍ es label
-                                            $line->product = $prodM;
-                                    }                                    
-                                    $object->lines[] = $line;
+                    if (!empty($object->id)) {
+                            $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasodet WHERE fk_traspaso = ".((int)$object->id);
+                            $res_det = $this->db->query($sql_det);
+                            if ($res_det) {
+                                    require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+                                    while ($obj_det = $this->db->fetch_object($res_det)) {
+                                            $line = new stdClass();
+                                            $line->rowid = $obj_det->rowid;
+                                            $line->qty = $obj_det->qty;
+                                            $line->desc = $obj_det->description;
+                                            $line->qty_asked = $obj_det->qty; // Por si la plantilla pide este parámetro alterno
+
+                                            $prodM = new Product($this->db);
+                                            if ($prodM->fetch($obj_det->fk_product) > 0) {
+                                                    $line->fk_product = $obj_det->fk_product;
+                                                    $line->ref = $prodM->ref;
+                                                    $line->label = $prodM->label;
+                                                    $line->product = $prodM;
+                                            }
+                                            $object->lines[] = $line;
+                                    }
                             }
-                            $nblines = count($object->lines);
                     }
-            }		
+            }
+            $nblines = (is_array($object->lines) ? count($object->lines) : 0);
 
 		$hidetop = 0;
 		if (getDolGlobalString('MAIN_PDF_DISABLE_COL_HEAD_TITLE')) {
@@ -1115,7 +1113,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$top_shift = $pdf->getY() - $current_y;
 		}
 
-			// ====================================================================
+// ====================================================================
             // 1. PRIMERO: OBTENER DATOS DE TIENDAS Y ALMACENES DIRECTO DE BD
             // ====================================================================
             $tienda_origen = "AJIGSA MATRIZ";
@@ -1123,13 +1121,12 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
             $tienda_destino = "NO DEFINIDO";
             $almacen_destino = "NO DEFINIDO";
 
-            // Forzamos la lectura real de las columnas desde la base de datos para este traspaso
             $id_entidad_dest = 0;
             $id_almacen_orig = 0;
             $id_almacen_dest = 0;
-            
-			if (!empty($object->rowid)) {
-        			$sql_core = "SELECT fk_warehouse_origen, entidadDestino, fk_warehouse_destino FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso WHERE rowid = ".((int)$object->rowid);
+
+            if (!empty($object->id)) {
+                    $sql_core = "SELECT fk_warehouse_origen, entidadDestino, fk_warehouse_destino FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso WHERE rowid = ".((int)$object->id);
                     $res_core = $this->db->query($sql_core);
                     if ($res_core && $this->db->num_rows($res_core) > 0) {
                             $obj_core = $this->db->fetch_object($res_core);
@@ -1138,14 +1135,17 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $id_almacen_dest = $obj_core->fk_warehouse_destino;
                     }
             }
+
             // 1. Obtener Almacén Origen
             if ($id_almacen_orig > 0) {
-                    require_once DOL_DOCUMENT_ROOT.'/product/stock/class/entrepot.class.php';
-                    $entrepotM = new Entrepot($this->db);
-                    if ($entrepotM->fetch($id_almacen_orig) > 0) {
-                            $almacen_origen = $entrepotM->ref." ".$entrepotM->libelle;
+                    $sql_wh_orig = "SELECT ref, description FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$id_almacen_orig);
+                    $res_wh_orig = $this->db->query($sql_wh_orig);
+                    if ($res_wh_orig && $this->db->num_rows($res_wh_orig) > 0) {
+                            $obj_wh_orig = $this->db->fetch_object($res_wh_orig);
+                            $almacen_origen = $obj_wh_orig->ref." ".$obj_wh_orig->description;
                     }
             }
+
             // 2. Obtener Tienda Destino (Entidad)
             if ($id_entidad_dest > 0) {
                     $sql_ent = "SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".((int)$id_entidad_dest);
@@ -1155,14 +1155,13 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $tienda_destino = $obj_ent->label;
                     }
             }
-			// 3. Obtener Almacén Destino
+
+            // 3. Obtener Almacén Destino
             if ($id_almacen_dest > 0) {
-                    // Cambiamos 'label' por 'description' que es la columna real en Dolibarr
                     $sql_wh = "SELECT ref, description FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".((int)$id_almacen_dest);
                     $res_wh = $this->db->query($sql_wh);
                     if ($res_wh && $this->db->num_rows($res_wh) > 0) {
                             $obj_wh = $this->db->fetch_object($res_wh);
-                            // Usamos description aquí
                             $almacen_destino = $obj_wh->ref." ".$obj_wh->description;
                     }
             }
@@ -1170,7 +1169,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 		if ($showaddress) {
 			// Sender properties
 			//$carac_emetteur = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
-			$carac_emetteur = "Tienda que envía:\n".$tienda_origen."\n\nAlmacén que Envía:\n".$almacen_origen;
+			$carac_emetteur = "Tienda que envía:\n".$tienda_origen."\n\nAlmacén que Envía:\n".$almacen_origen;			
 
 			// Show sender
 			$posy = getDolGlobalInt('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
