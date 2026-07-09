@@ -335,7 +335,8 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				$object->lines = array();
                                 if (!empty($object->id)) {
                                         // CONSULTA CORREGIDA CON TU ESQUEMA REAL
-                                        $sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
+                                        //$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
+										$sql_det = "SELECT rowid, fk_product, qty, description, pmp, amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
                                         $res_det = $this->db->query($sql_det);
                                     if ($res_det) {
                                         require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
@@ -365,10 +366,12 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                                                 $line->description = !empty($obj_det->description) ? $obj_det->description : '';
 
                                                 // Propiedades requeridas para el renderizado del PDF
-                                                $line->subprice = 0;
-                                                $line->total_ht = 0;
-                                                $line->total_tva = 0;
-                                                $line->total_ttc = 0;
+												$line->pmp = $obj_det->pmp;
+												$line->amount = $obj_det->amount;
+												$line->subprice = $obj_det->pmp;
+												$line->total_ht = $obj_det->amount;
+												$line->total_tva = 0;
+												$line->total_ttc = $obj_det->amount;
                                                 $line->tva_tx = 0;
                                                 $line->remise_percent = 0;
                                                 $line->special_code = 0; 
@@ -754,7 +757,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 					}
 
 					// DEBUG TEMPORAL - borrar después
-					error_log("DEBUG TRASPASO LINEA i=$i rowid=".(isset($object->lines[$i]->rowid) ? $object->lines[$i]->rowid : 'NULL')." amount=".(isset($object->lines[$i]->amount) ? $object->lines[$i]->amount : 'NO EXISTE')." pmp=".(isset($object->lines[$i]->pmp) ? $object->lines[$i]->pmp : 'NO EXISTE'));
+					// error_log("DEBUG TRASPASO LINEA i=$i rowid=".(isset($object->lines[$i]->rowid) ? $object->lines[$i]->rowid : 'NULL')." amount=".(isset($object->lines[$i]->amount) ? $object->lines[$i]->amount : 'NO EXISTE')." pmp=".(isset($object->lines[$i]->pmp) ? $object->lines[$i]->pmp : 'NO EXISTE'));
 					// Importe (Total)
 					if ($this->getColumnStatus('totalexcltax')) {
 						$amount_line = !empty($object->lines[$i]->amount) ? $object->lines[$i]->amount : 0;
