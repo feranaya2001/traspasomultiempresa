@@ -934,7 +934,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				// Importe Total (alineado bajo la columna Base imp., a la derecha)
 				$pdf->SetXY($this->page_largeur - $this->marge_droite - 60, $posy_totales);
 				$pdf->MultiCell(60, 5, 'Importe Total: '.price($total_importe, 0, $outputlangs), 0, 'R');
-				
+
 				// Display payment area
 				/*
 				if ($deja_regle)
@@ -1126,11 +1126,13 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 		$pdf->SetFont('', 'B', $default_font_size + 3);
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
-		$title = $outputlangs->transnoentities("PdfTitle");
+		//$title = $outputlangs->transnoentities("PdfTitle");
+		$title = 'Traspaso Multiempresa';
+		/*
 		if (getDolGlobalInt('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
 			$title .= ' - ';
 			$title .= $outputlangsbis->transnoentities("PdfTitle");
-		}
+		} */
 		$pdf->MultiCell($w, 3, $title, '', 'R');
 
 		$pdf->SetFont('', 'B', $default_font_size);
