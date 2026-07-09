@@ -914,10 +914,23 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
 
 				// Display infos area
-				//$posy = $this->drawInfoTable($pdf, $object, $bottomlasttab, $outputlangs);
-
-				// Display total zone
-				//$posy = $this->drawTotalTable($pdf, $object, $deja_regle, $bottomlasttab, $outputlangs);
+				// Display total zone (custom: total de partidas y suma de importe)
+				$total_qty_lineas = 0;
+				$total_importe = 0;
+				if (!empty($object->lines)) {
+					foreach ($object->lines as $lin) {
+						$total_qty_lineas += (float) $lin->qty;
+						$total_importe += (float) $lin->amount;
+					}
+				}
+				$posy_totales = $bottomlasttab;
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales);
+				$pdf->MultiCell(40, 5, 'Total Partidas: '.count($object->lines), 0, 'R');
+				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales + 5);
+				$pdf->MultiCell(40, 5, 'Total Cantidad: '.$total_qty_lineas, 0, 'R');
+				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales + 10);
+				$pdf->MultiCell(40, 5, 'Importe Total: '.price($total_importe, 0, $outputlangs), 0, 'R');				
 
 				// Display payment area
 				/*
