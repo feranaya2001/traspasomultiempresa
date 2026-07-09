@@ -1395,10 +1395,39 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$posy = $pdf->getY();
 
 			// Show recipient information
-			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->SetXY($posx + 2, $posy);
 			// @phan-suppress-next-line PhanPluginSuspiciousParamOrder
 			$pdf->MultiCell($widthrecbox, 4, $carac_client, 0, $ltrdirection);
+
+			// --- Usuario que crea y usuario que valida ---
+			$login_creat = '';
+			$login_valid = '';
+			if (!empty($object->fk_user_creat)) {
+				require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+				$userTmp = new User($this->db);
+				if ($userTmp->fetch($object->fk_user_creat) > 0) {
+					$login_creat = $userTmp->login;
+				}
+			}
+			if (!empty($object->fk_user_modif) && $object->status == $object::STATUS_VALIDATED) {
+				require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+				$userTmp2 = new User($this->db);
+				if ($userTmp2->fetch($object->fk_user_modif) > 0) {
+					$login_valid = $userTmp2->login;
+				}
+			}
+			$fecha_creacion = dol_print_date($object->date_creation, 'dayhour');
+			$fecha_validacion = ($object->status == $object::STATUS_VALIDATED) ? dol_print_date($object->tms, 'dayhour') : '';
+			$posy = $pdf->getY() + 2;
+			$pdf->SetFont('', '', $default_font_size - 1);
+			$pdf->SetXY($posx + 2, $posy);
+			$pdf->MultiCell($widthrecbox - 2, 4, 'Realizó: '.$login_creat." (".$fecha_creacion.")", 0, $ltrdirection);
+			if (!empty($login_valid)) {
+				$posy = $pdf->getY();
+				$pdf->SetXY($posx + 2, $posy);
+				$pdf->MultiCell($widthrecbox - 2, 4, 'Validó: '.$login_valid." (".$fecha_validacion.")", 0, $ltrdirection);
+			}
+			$pdf->SetTextColor(0, 0, 0);
 		}
 
 		$pdf->SetTextColor(0, 0, 0);
