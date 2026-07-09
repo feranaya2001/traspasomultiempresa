@@ -2,7 +2,7 @@
 /* Copyright (C) 2007-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.2
+ * Version: 1.0.3
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -358,16 +358,8 @@ if (isset($extrafields->attributes[$object->table_element]['label']) && is_array
 $parameters = array();
 $reshook = $hookmanager->executeHooks('printFieldListFrom', $parameters, $object, $action); // Note that $action and $object may have been modified by hook
 $sql .= $hookmanager->resPrint;
-if ($object->ismultientitymanaged == 1) {
-	$sql .= " WHERE t.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
-} else {
-	// >>> PROTECCIÓN CRÍTICA MULTIEMPRESA ALTERNATIVA entity.")";
-}
-if ($object->ismultientitymanaged == 1) {
-	$sql .= " WHERE t.entity IN (".getEntity($object->element, (GETPOSTINT('search_current_entity') ? 0 : 1)).")";
-} else {
-	$sql .= " WHERE 1 = 1";
-}
+// Filtro por multiempresa: mostramos solo traspasos cuyo almacén ORIGEN pertenece a la entidad activa
+$sql .= " WHERE EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."entrepot as we WHERE we.rowid = t.fk_warehouse_origen AND we.entity IN (".getEntity('entrepot').("))");
 foreach ($search as $key => $val) {
 	if (array_key_exists($key, $object->fields)) {
 		if ($key == 'status' && $search[$key] == -1) {
