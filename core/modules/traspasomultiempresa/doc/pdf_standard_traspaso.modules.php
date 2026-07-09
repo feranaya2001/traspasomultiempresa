@@ -1444,11 +1444,22 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 	 *	@param	int<0,1>		$hidefreetext	1=Hide free text
 	 *	@return	int<0,1>						Return height of bottom margin including footer text
 	 */
-	protected function _pagefoot(&$pdf, $object, $outputlangs, $hidefreetext = 0)
-	{
+	
+	protected function _pagefoot(&$pdf, $object, $outputlangs, $hidefreetext = 0){
 		global $conf;
-		$showdetails = !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 0 : getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS');
-		return pdf_pagefoot($pdf, $outputlangs, 'INVOICE_FREE_TEXT', $this->emetteur, $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, $hidefreetext);
+		// Pie de página simplificado: solo dirección y teléfono de la empresa principal (sin datos fiscales)
+		$pdf->SetFont('', '', 7);
+		$pdf->SetY(-18);
+		$footer_text = $this->emetteur->address;
+		if (!empty($this->emetteur->zip) || !empty($this->emetteur->town)) {
+			$footer_text .= ', '.$this->emetteur->zip.' '.$this->emetteur->town;
+		}
+		if (!empty($this->emetteur->phone)) {
+			$footer_text .= ' - Tel: '.$this->emetteur->phone;
+		}
+		$pdf->SetX($this->marge_gauche);
+		$pdf->MultiCell($this->page_largeur - $this->marge_gauche - $this->marge_droite, 3, $outputlangs->convToOutputCharset($footer_text), 0, 'C');
+		return 1;
 	}
 
 	/**
