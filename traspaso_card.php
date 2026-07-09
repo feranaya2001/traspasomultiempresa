@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.14
+ * Version: 1.0.15
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -419,9 +419,17 @@ if (empty($reshook)) {
 
 		if (!$error) {
 			$db->begin();
-		
+			// Sacamos el consecutivo más alto ya usado en el sufijo del ref (-N),
+			// así no se repite aunque se borren partidas intermedias.
+			$sql_count_lineas = "SELECT MAX(CAST(SUBSTRING_INDEX(ref, '-', -1) AS UNSIGNED)) as maxnum FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int) $object->id);
+			$res_count_lineas = $db->query($sql_count_lineas);
+			$num_linea_actual = 1;
+			if ($res_count_lineas && ($obj_count = $db->fetch_object($res_count_lineas)) && $obj_count->maxnum !== null) {
+				$num_linea_actual = ((int) $obj_count->maxnum) + 1;
+			}
+        	$partida_ref   = $object->ref . '-' . $num_linea_actual;
 			// 1. Calculamos la referencia y los datos obligatorios
-			$partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
+			//$partida_ref   = $object->ref . '-' . (count($object->lines) + 1);
 			$fecha_actual  = dol_print_date(dol_now(), '%Y-%m-%d %H:%M:%S');
 			$usuario_crea  = (int) $user->id;
 			$id_traspaso   = (int) $object->id;
