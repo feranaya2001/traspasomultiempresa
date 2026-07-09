@@ -925,13 +925,16 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				}
 				$posy_totales = $bottomlasttab;
 				$pdf->SetFont('', 'B', $default_font_size);
-				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales);
-				$pdf->MultiCell(40, 5, 'Total Partidas: '.count($object->lines), 0, 'R');
-				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales + 5);
-				$pdf->MultiCell(40, 5, 'Total Cantidad: '.$total_qty_lineas, 0, 'R');
-				$pdf->SetXY($this->page_largeur - $this->marge_droite - 80, $posy_totales + 10);
-				$pdf->MultiCell(40, 5, 'Importe Total: '.price($total_importe, 0, $outputlangs), 0, 'R');				
-
+				// Total Partidas (alineado a la izquierda)
+				$pdf->SetXY($this->marge_gauche, $posy_totales);
+				$pdf->MultiCell(60, 5, 'Total Partidas: '.count($object->lines), 0, 'L');
+				// Total Cantidad (centrado, bajo la columna Cant./Unidad)
+				$pdf->SetXY($this->page_largeur / 2 - 30, $posy_totales);
+				$pdf->MultiCell(60, 5, 'Total Cantidad: '.$total_qty_lineas, 0, 'C');
+				// Importe Total (alineado bajo la columna Base imp., a la derecha)
+				$pdf->SetXY($this->page_largeur - $this->marge_droite - 60, $posy_totales);
+				$pdf->MultiCell(60, 5, 'Importe Total: '.price($total_importe, 0, $outputlangs), 0, 'R');
+				
 				// Display payment area
 				/*
 				if ($deja_regle)
