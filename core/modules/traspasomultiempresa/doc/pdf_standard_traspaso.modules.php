@@ -12,7 +12,7 @@
  * Copyright (C) 2024-2025	MDW							<mdeweerd@users.noreply.github.com>
  * Copyright (C) 2024		Alexandre Spangaro			<alexandre@inovea-conseil.com>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Ver. 1.0.1
+ * Ver. 1.0.2
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -735,6 +735,23 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 						$this->printStdColumnContent($pdf, $curY, 'qty', $qty);
 						$nexY = max($pdf->GetY(), $nexY);
 					}
+					// Unit (fijo por ahora, pendiente conectar unidad real del producto)
+					if ($this->getColumnStatus('unit')) {
+						$this->printStdColumnContent($pdf, $curY, 'unit', 'PZA');
+						$nexY = max($pdf->GetY(), $nexY);
+					}
+					// Costo Unit. (PMP)
+					if ($this->getColumnStatus('subprice')) {
+						$pmp_line = !empty($object->lines[$i]->pmp) ? $object->lines[$i]->pmp : 0;
+						$this->printStdColumnContent($pdf, $curY, 'subprice', price($pmp_line, 0, $outputlangs));
+						$nexY = max($pdf->GetY(), $nexY);
+					}
+					// Importe (Total)
+					if ($this->getColumnStatus('totalexcltax')) {
+						$amount_line = !empty($object->lines[$i]->amount) ? $object->lines[$i]->amount : 0;
+						$this->printStdColumnContent($pdf, $curY, 'totalexcltax', price($amount_line, 0, $outputlangs));
+						$nexY = max($pdf->GetY(), $nexY);
+					}
 
 					// Extrafields
 					if (!empty($object->lines[$i]->array_options)) {
@@ -1179,7 +1196,7 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 			$top_shift = $pdf->getY() - $current_y;
 		}
 
-// ====================================================================
+			// ====================================================================
             // 1. PRIMERO: OBTENER DATOS DE TIENDAS Y ALMACENES DIRECTO DE BD
             // ====================================================================
             $tienda_origen = "AJIGSA MATRIZ";
@@ -1211,6 +1228,15 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
                             $almacen_origen = $obj_wh_orig->ref." ".$obj_wh_orig->description;
                     }
             }
+			// 1b. Obtener Tienda Origen (Entidad real del almacén origen)
+			if ($id_almacen_orig > 0) {
+				$sql_ent_orig = "SELECT e.label FROM ".MAIN_DB_PREFIX."entity as e INNER JOIN ".MAIN_DB_PREFIX."entrepot as w ON w.entity = e.rowid WHERE w.rowid = ".((int) $id_almacen_orig);
+				$res_ent_orig = $this->db->query($sql_ent_orig);
+				if ($res_ent_orig && $this->db->num_rows($res_ent_orig) > 0) {
+					$obj_ent_orig = $this->db->fetch_object($res_ent_orig);
+					$tienda_origen = $obj_ent_orig->label;
+				}
+			}
 
             // 2. Obtener Tienda Destino (Entidad)
             if ($id_entidad_dest > 0) {
@@ -1447,57 +1473,40 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 		// 	$this->cols['photo']['status'] = true;
 		// }
 
-
+		//Nuevo bloque de columnas FAA
 		$rank += 10;
 		$this->cols['vat'] = array(
 			'rank' => $rank,
-			'status' => false,
-			'width' => 16, // in mm
-			'title' => array(
-				'textkey' => 'VAT'
-			),
-			'border-left' => true, // add left line separator
+			'status' => false, // Ocultamos IVA, no aplica a traspasos
+			'width' => 16,
+			'title' => array('textkey' => 'VAT'),
+			'border-left' => true,
 		);
-
-		if (!getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') && !getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
-			$this->cols['vat']['status'] = true;
-		}
-
-		$rank += 10;
-		$this->cols['subprice'] = array(
-			'rank' => $rank,
-			'width' => 19, // in mm
-			'status' => true,
-			'title' => array(
-				'textkey' => 'PriceUHT'
-			),
-			'border-left' => true, // add left line separator
-		);
-
 		$rank += 10;
 		$this->cols['qty'] = array(
 			'rank' => $rank,
-			'width' => 16, // in mm
+			'width' => 16,
 			'status' => true,
-			'title' => array(
-				'textkey' => 'Qty'
-			),
-			'border-left' => true, // add left line separator
+			'title' => array('textkey' => 'Qty'),
+			'border-left' => true,
 		);
-
 		$rank += 10;
 		$this->cols['unit'] = array(
 			'rank' => $rank,
-			'width' => 11, // in mm
-			'status' => false,
-			'title' => array(
-				'textkey' => 'Unit'
-			),
-			'border-left' => true, // add left line separator
+			'width' => 14,
+			'status' => true, // Forzamos visible, aquí mostraremos "Pza"
+			'title' => array('textkey' => 'Unit'),
+			'border-left' => true,
 		);
-		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-			$this->cols['unit']['status'] = true;
-		}
+		$rank += 10;
+		$this->cols['subprice'] = array(
+			'rank' => $rank,
+			'width' => 22,
+			'status' => true,
+			'title' => array('textkey' => 'UnitPrice'), // "Costo (PMP)" via traducción custom más abajo
+			'border-left' => true,
+		);		
+		//FIN Nuevo bloque de columnas FAA
 
 		$rank += 10;
 		$this->cols['discount'] = array(
