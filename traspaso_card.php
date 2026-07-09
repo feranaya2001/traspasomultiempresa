@@ -279,9 +279,9 @@ if (empty($reshook)) {
 		if (!$error) {
 			$db->begin(); // Transacción SQL de seguridad
 
-			// A) Actualizar el estatus del documento padre a 1 (Validado) y asignar folio definitivo
+			// A) Actualizar el estatus del documento padre a 1 (Validado) y asignar folio definitivo			
 			$newref = $object->getNextNumRef();
-			$sql_update_status = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso SET status = 1, ref = '".$db->escape($newref)."' WHERE rowid = ".$id_traspaso;
+			$sql_update_status = "UPDATE ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso SET status = 1, ref = '".$db->escape($newref)."', fk_user_modif = ".((int) $user->id)." WHERE rowid = ".$id_traspaso;
 			$res_status = $db->query($sql_update_status);
 
 			if ($res_status) {				
