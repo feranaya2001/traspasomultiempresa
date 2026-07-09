@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.12
+ * Version: 1.0.13
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -223,7 +223,8 @@ if (empty($reshook)) {
 	// =========================================================================
 	// >>> ACCIÓN: VALIDAR TRASPASO MULTIEMPRESA (ORIGEN -> DESTINO) <<<
 	// =========================================================================	
-	if ($action == 'confirm_validate') {
+	//if ($action == 'confirm_validate') {
+	if ($action == 'confirm_validate_traspaso') {
 		if (empty($permissiontoadd)) { 
 			accessforbidden('NotEnoughPermissions', 0, 1);
 		}
@@ -810,7 +811,8 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 	// Confirmation to validate
 	if ($action == 'validate') {
 		//$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, $langs->trans('ValidateTraspaso'), $langs->trans('ConfirmValidateTraspaso'), 'confirm_validate', '', 0, 1);
-		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, 'Validar Traspaso', '¿Está seguro de validar este traspaso? Una vez validado no podrá modificarlo ni regresarlo a borrador.', 'confirm_validate', '', 0, 1);
+		//$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, 'Validar Traspaso', '¿Está seguro de validar este traspaso? Una vez validado no podrá modificarlo ni regresarlo a borrador.', 'confirm_validate', '', 0, 1);
+		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, 'Validar Traspaso', '¿Está seguro de validar este traspaso? Una vez validado no podrá modificarlo ni regresarlo a borrador.', 'confirm_validate_traspaso', '', 0, 1);
 	}
 
 	// Clone confirmation
