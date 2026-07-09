@@ -753,6 +753,16 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 						$nexY = max($pdf->GetY(), $nexY);
 					}
 
+					// DEBUG TEMPORAL - borrar después
+					error_log("DEBUG TRASPASO LINEA i=$i rowid=".(isset($object->lines[$i]->rowid) ? $object->lines[$i]->rowid : 'NULL')." amount=".(isset($object->lines[$i]->amount) ? $object->lines[$i]->amount : 'NO EXISTE')." pmp=".(isset($object->lines[$i]->pmp) ? $object->lines[$i]->pmp : 'NO EXISTE'));
+					// Importe (Total)
+					if ($this->getColumnStatus('totalexcltax')) {
+						$amount_line = !empty($object->lines[$i]->amount) ? $object->lines[$i]->amount : 0;
+						$this->printStdColumnContent($pdf, $curY, 'totalexcltax', price($amount_line, 0, $outputlangs));
+						$nexY = max($pdf->GetY(), $nexY);
+					} 
+					// FIN DEBUG TEMPORAL
+
 					// Extrafields
 					if (!empty($object->lines[$i]->array_options)) {
 						foreach ($object->lines[$i]->array_options as $extrafieldColKey => $extrafieldValue) {
