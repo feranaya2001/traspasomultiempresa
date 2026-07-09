@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.11
+ * Version: 1.0.12
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -163,7 +163,8 @@ if ($enablepermissioncheck) {
 	$permissiondellink = 1;
 }
 
-$upload_dir = $conf->traspasomultiempresa->multidir_output[isset($object->entity) ? $object->entity : 1].'/traspaso';
+//$upload_dir = $conf->traspasomultiempresa->multidir_output[isset($object->entity) ? $object->entity : 1].'/traspaso';
+$upload_dir = $conf->traspasomultiempresa->multidir_output[!empty($object->entity) ? $object->entity : $conf->entity].'/traspaso';
 
 // Security check (enable the most restrictive one)
 //if ($user->socid > 0) accessforbidden();
