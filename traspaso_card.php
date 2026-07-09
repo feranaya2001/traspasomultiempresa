@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.13
+ * Version: 1.0.14
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -502,7 +502,7 @@ if (empty($reshook)) {
 		}
 	} // FIN ACTION ADDLINE
 
-	    // --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
+	// --- BÚSQUEDA AJAX DE PRODUCTOS (alimenta el Select2, evita cargar todo el catálogo) ---
     if ($action == 'search_products_ajax') {
         top_httphead('application/json');
 
@@ -520,9 +520,11 @@ if (empty($reshook)) {
             $sql_search .= " FROM ".MAIN_DB_PREFIX."product as p";
             $sql_search .= " LEFT JOIN ".MAIN_DB_PREFIX."product_stock as s ON s.fk_product = p.rowid AND s.fk_entrepot = ".$idwarehouse;
             $sql_search .= " WHERE (p.tosell = 1 OR p.tobuy = 1)";
-            $sql_search .= " AND p.entity IN (".getEntity('product').")";            
-			$sql_search .= " AND (p.ref LIKE '".$term_escaped."%' OR p.label LIKE '%".$term_escaped."%')";
-            $sql_search .= " ORDER BY p.ref ASC";
+            $sql_search .= " AND p.entity IN (".getEntity('product').")";
+            $sql_search .= " AND (p.ref LIKE '".$term_escaped."%' OR p.label LIKE '%".$term_escaped."%')";
+            // Priorizamos coincidencias de REFERENCIA (prefijo exacto) sobre las de ETIQUETA,
+            // para que un ref que empieza con el término buscado nunca quede fuera del LIMIT 30.
+            $sql_search .= " ORDER BY (CASE WHEN p.ref LIKE '".$term_escaped."%' THEN 0 ELSE 1 END), p.ref ASC";
             $sql_search .= $db->plimit(30);
 
             $res_search = $db->query($sql_search);
@@ -537,7 +539,7 @@ if (empty($reshook)) {
                 }
             }
         }
-
+		// --- FIN BÚSQUEDA AJAX DE PRODUCTOS
         echo json_encode(array('results' => $results));
         exit;
     }
@@ -1002,7 +1004,8 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
             require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
             $form = new Form($db);
         }
-        print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
+		print '<select id="idprod" name="idprod" class="minwidth500" style="width:600px"><option value=""></option></select>';
+        //print '<select id="idprod" name="idprod" class="minwidth300" style="width:300px"><option value=""></option></select>';
         print '</td>';
         
         // Input de cantidad
@@ -1073,8 +1076,9 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     print '</form>';
     print '<script type="text/javascript">
 jQuery(document).ready(function() {
-    jQuery("#idprod").select2({
-        width: "300px",
+	jQuery("#idprod").select2({
+        width: "600px",
+        dropdownAutoWidth: true,    
         minimumInputLength: 2,
         placeholder: "Escribe referencia o nombre del producto...",
         language: {
