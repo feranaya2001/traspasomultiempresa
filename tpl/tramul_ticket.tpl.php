@@ -271,7 +271,7 @@ if (!empty($object->lines)) {
         //echo "Cantidad: ".$line->qty."\n";
         $espacio_disponible = $ANCHO - strlen($ref_prod) - 2; // 2 espacios de separación
         if ($espacio_disponible < 5) $espacio_disponible = 5; // margen minimo de seguridad
-        $lab_prod_corta = dol_trunc($lab_prod, $espacio_disponible, 'right', 'UTF-8', 1);
+        $lab_prod_corta = mb_substr($lab_prod, 0, $espacio_disponible, 'UTF-8');
         echo dol_escape_htmltag($ref_prod)."  ".dol_escape_htmltag($lab_prod_corta)."\n";
         echo "Cantidad: ".$line->qty."\n";
     }
