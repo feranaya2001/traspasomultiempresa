@@ -12,7 +12,7 @@
  * Copyright (C) 2024-2025	MDW							<mdeweerd@users.noreply.github.com>
  * Copyright (C) 2024		Alexandre Spangaro			<alexandre@inovea-conseil.com>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Ver. 1.0.2
+ * Ver. 1.0.3
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -912,16 +912,15 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code, $outputlangsbis);
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
-
-				// Display infos area
-				// Display total zone (custom: total de partidas y suma de importe)
-				$total_qty_lineas = 0;
-				$total_importe = 0;
+                // Display infos area
+                // Display total zone (custom: total de partidas y suma de importe)
+                $total_qty_lineas = 0;
+                $total_importe = 0;
 				if (!empty($object->lines)) {
-					foreach ($object->lines as $lin) {
-						$total_qty_lineas += (float) $lin->qty;
-						$total_importe += (float) $lin->amount;
-					}
+						foreach ($object->lines as $lin) {
+								$total_qty_lineas += (float) $lin->qty;
+								$total_importe += (float) $lin->amount;
+						}
 				}
 				$posy_totales = $bottomlasttab;
 				$pdf->SetFont('', 'B', $default_font_size);
@@ -935,6 +934,24 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				$pdf->SetXY($this->page_largeur - $this->marge_droite - 60, $posy_totales);
 				$pdf->MultiCell(60, 5, 'Importe Total: '.price($total_importe, 0, $outputlangs), 0, 'R');
 
+				// Bloque de firmas (Surtio, Reviso, Traslado, Recibio)
+				$posy_firmas = $posy_totales + 20;
+				$ancho_util = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
+				$num_firmas = 4;
+				$ancho_firma = $ancho_util / $num_firmas;
+				$etiquetas_firma = array('Surtio', 'Reviso', 'Traslado', 'Recibio');
+
+				$pdf->SetFont('', '', $default_font_size - 1);
+				foreach ($etiquetas_firma as $i => $etiqueta) {
+						$x_inicio = $this->marge_gauche + ($i * $ancho_firma) + 5;
+						$x_fin = $this->marge_gauche + (($i + 1) * $ancho_firma) - 5;
+						// Linea para la firma
+						$pdf->SetLineStyle(array('width' => 0.1, 'color' => array(0, 0, 0)));
+						$pdf->Line($x_inicio, $posy_firmas, $x_fin, $posy_firmas);
+						// Etiqueta debajo de la linea
+						$pdf->SetXY($this->marge_gauche + ($i * $ancho_firma), $posy_firmas + 1);
+						$pdf->MultiCell($ancho_firma, 4, $etiqueta, 0, 'C');
+				}
 				// Display payment area
 				/*
 				if ($deja_regle)
