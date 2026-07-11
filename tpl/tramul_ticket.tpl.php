@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2026  Fernando Anaya Alba  <consultor.sistemas@ajigsa.com>
- * Ver. 1.0.1
+ * Ver. 1.0.2
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -267,7 +267,12 @@ if (!empty($object->lines)) {
                 $lab_prod = $prod->label;
             }
         }
-        echo dol_escape_htmltag($ref_prod)."  ".dol_escape_htmltag($lab_prod)."\n";
+        //echo dol_escape_htmltag($ref_prod)."  ".dol_escape_htmltag($lab_prod)."\n";
+        //echo "Cantidad: ".$line->qty."\n";
+        $espacio_disponible = $ANCHO - strlen($ref_prod) - 2; // 2 espacios de separación
+        if ($espacio_disponible < 5) $espacio_disponible = 5; // margen minimo de seguridad
+        $lab_prod_corta = dol_trunc($lab_prod, $espacio_disponible, 'right', 'UTF-8', 1);
+        echo dol_escape_htmltag($ref_prod)."  ".dol_escape_htmltag($lab_prod_corta)."\n";
         echo "Cantidad: ".$line->qty."\n";
     }
 } else {
