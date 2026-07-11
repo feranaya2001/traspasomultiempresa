@@ -47,6 +47,10 @@ if ($result <= 0) {
     exit;
 }
 $object->fetchLines();
+// Depuracion temporal
+var_dump($object->id, count($object->lines), $object->error, $object->errors);
+die();
+//
 
 // -------------------------
 // Datos de la entidad/sucursal emisora (matriz o entidad actual)
