@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.15
+ * Version: 1.0.16
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -1241,6 +1241,10 @@ jQuery(document).ready(function() {
 			if ($permissiontoadd) {
 				print dolGetButtonAction('', $langs->trans('ToClone'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.(!empty($object->socid) ? '&socid='.$object->socid : '').'&action=clone&token='.newToken(), '', $permissiontoadd);
 			}
+			
+			// Imprimir Ticket
+			$ticketUrl = dol_buildpath('/traspasomultiempresa/tpl/tramul_ticket.tpl.php', 1).'?id='.$object->id;
+			print dolGetButtonAction('', 'Imprimir Ticket', 'default', $ticketUrl, '', $permissiontoread, array('attr' => array('target' => '_blank')));
 
 			/*
 			// Disable / Enable
