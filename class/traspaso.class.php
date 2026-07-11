@@ -2,7 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur      <eldy@users.sourceforge.net>
  * Copyright (C) 2023-2024  Frédéric France          <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Ver 1.0.2  
+ * Ver 1.0.3  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -1256,89 +1256,4 @@ class Traspaso extends CommonObject
 
 		return $error;
 	}
-}
-
-
-require_once DOL_DOCUMENT_ROOT.'/core/class/commonobjectline.class.php';
-
-/**
- * Class TraspasoLine. You can also remove this and generate a CRUD class for lines objects.
- */
-class TraspasoLine extends CommonObjectLine
-{
-	// To complete with content of an object TraspasoLine
-	// We should have a field rowid, fk_traspaso and position
-
-	/**
-	 * To overload
-	 * @see CommonObjectLine
-	 */
-	public $parent_element = '';		// Example: '' or 'traspaso'
-
-	/**
-	 * To overload
-	 * @see CommonObjectLine
-	 */
-	public $fk_parent_attribute = '';	// Example: '' or 'fk_traspaso'
-
-	/**
-	 * @var int<0,1>	Does object support extrafields ? 0=No, 1=Yes
-	 */
-	public $isextrafieldmanaged = 0;
-
-	/**
-	 * @var int<0,1>|string|null  	Does this object support multicompany module ?
-	 * 								0=No test on entity, 1=Test with field entity in local table, 'field@table'=Test entity into the field@table (example 'fk_soc@societe')
-	 */
-	public $ismultientitymanaged = 0;
-
-
-	/**
-	 * Constructor
-	 *
-	 * @param	DoliDB $db Database handler
-	 */
-	public function __construct(DoliDB $db)
-	{
-		$this->db = $db;
-	}
-
-    /**
-     * Form to add object lines
-     *
-     * @param int $dateSelector Preselected product ID
-     * @param Societe $seller Company object
-     * @param Societe $buyer Thirdparty object
-     * @param string $defaulttpldir Template directory
-     * @return void
-     */
-    public function formAddObjectLine($dateSelector = 0, $seller = null, $buyer = null, $defaulttpldir = '/core/tpl')
-    {
-        global $conf, $langs, $form;
-        
-        if (!is_object($form)) {
-            require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
-            $form = new Form($this->db);
-        }
-
-        print '<tr class="nodrag nodrop">';
-        
-        // Columna para seleccionar el Producto (Buscador nativo)
-        print '<td>';
-        print $form->select_produits('', 'idprod', '', $conf->product->limit, 0, 1, 2, '', 1, array(), 0, '1', 0, '', 0, '', null, 1);
-        print '</td>';
-
-        // Columna para la Cantidad
-        print '<td class="right">';
-        print '<input type="text" size="4" name="qty" id="qty" value="1">';
-        print '</td>';
-
-        // Columna del botón Añadir
-        print '<td class="center">';
-        print '<input type="submit" class="button" value="'.$langs->trans("Add").'">';
-        print '</td>';
-
-        print '</tr>';
-    }
-
 }
