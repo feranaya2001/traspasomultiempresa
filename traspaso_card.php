@@ -1243,7 +1243,7 @@ jQuery(document).ready(function() {
 			}
 			
 			// Imprimir Ticket
-			$ticketUrl = dol_buildpath('/traspasomultiempresa/tpl/tramul_ticket.tpl.php', 1).'?id='.$object->id;
+			$ticketUrl = DOL_URL_ROOT.'/custom/traspasomultiempresa/tpl/tramul_ticket.tpl.php?id='.$object->id;
 			print dolGetButtonAction('', 'Imprimir Ticket', 'default', $ticketUrl, '', $permissiontoread, array('attr' => array('target' => '_blank')));
 
 			/*
