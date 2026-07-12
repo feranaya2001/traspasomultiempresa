@@ -334,31 +334,22 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				// ---> INYECTOR FORZADO DE ARTÍCULOS INTER-COMPAÑÍA <---
 				$object->lines = array();
                                 if (!empty($object->id)) {
-                                        // CONSULTA CORREGIDA CON TU ESQUEMA REAL
-                                        //$sql_det = "SELECT rowid, fk_product, qty, description FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
+                                        // CONSULTA CORREGIDA CON TU ESQUEMA REAL                                        
 										$sql_det = "SELECT rowid, fk_product, qty, description, pmp, amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int)$object->id);
                                         $res_det = $this->db->query($sql_det);
                                     if ($res_det) {
                                         require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
                                         require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
+										require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspasoline.class.php';
                                         
                                         while ($obj_det = $this->db->fetch_object($res_det)) {
                                                 
-                                                // CLASE ANÓNIMA QUE EXTIENDE DE TRASPASOLINE PARA INTERCEPTAR EL MÉTODO QUE FALTA
-                                                if (class_exists('TraspasoLine')) {
-                                                        $line = new class($this->db) extends TraspasoLine {
-                                                                public function get_prev_progress() {
-                                                                        return 0; // O lo que necesite el reporte, usualmente 0 por ciento
-                                                                }
-                                                        };
-                                                } else {
-                                                        require_once DOL_DOCUMENT_ROOT.'/core/class/commonline.class.php';
-                                                        $line = new class($this->db) extends CommonLine {
-                                                                public function get_prev_progress() {
-                                                                        return 0;
-                                                                }
-                                                        };
-                                                }
+                                                // TRASPASOLINE SIEMPRE DISPONIBLE (require_once agregado arriba, línea 344)
+												$line = new class($this->db) extends TraspasoLine {
+													public function get_prev_progress() {
+														return 0; // O lo que necesite el reporte, usualmente 0 por ciento
+													}
+												};											
                                                 
                                                 $line->rowid = $obj_det->rowid;
                                                 $line->qty = $obj_det->qty;
