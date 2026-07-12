@@ -1435,6 +1435,16 @@ class pdf_standard_traspaso extends ModelePDFTraspaso
 				$pdf->SetXY($posx + 2, $posy);
 				$pdf->MultiCell($widthrecbox - 2, 4, 'Validó: '.$login_valid." (".$fecha_validacion.")", 0, $ltrdirection);
 			}
+			if (!empty($object->description)) {
+				$posy = $pdf->getY() + 1;
+				$pdf->SetXY($posx + 2, $posy);
+				$pdf->SetFont('', 'B', $default_font_size - 1);
+				$pdf->MultiCell($widthrecbox - 2, 4, 'Descripción:', 0, $ltrdirection);
+				$posy = $pdf->getY();
+				$pdf->SetXY($posx + 2, $posy);
+				$pdf->SetFont('', '', $default_font_size - 1);
+				$pdf->MultiCell($widthrecbox - 2, 4, $outputlangs->convToOutputCharset($object->description), 0, $ltrdirection);
+			}
 			$pdf->SetTextColor(0, 0, 0);
 		}
 
