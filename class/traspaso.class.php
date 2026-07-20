@@ -2,7 +2,7 @@
 /* Copyright (C) 2017       Laurent Destailleur      <eldy@users.sourceforge.net>
  * Copyright (C) 2023-2024  Frédéric France          <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Ver 1.0.4  
+ * Ver 1.0.5  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -142,7 +142,8 @@ class Traspaso extends CommonObject
 		"model_pdf" => array("type" => "varchar(255)", "label" => "Model pdf", "enabled" => "1", 'position' => 1010, 'notnull' => -1, "visible" => "0",),
 		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "1", "index" => "1", "arrayofkeyval" => array("0" => "Borrador", "1" => "Validado", "9" => "Cancelado"), "validate" => "1",),
 		//"entidadDestino" => array("type" => "sellist", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entity:label:rowid::rowid>0"),),
-		"entidadDestino" => array("type" => "sellist", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entity:label:rowid::rowid>0"),),
+		//"entidadDestino" => array("type" => "sellist", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entity:label:rowid::rowid>0"),),
+		"entidadDestino" => array("type" => "sellist:entity:label:rowid::active=1", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1",),
 		//"fk_warehouse_origen" => array("type" => "sellist", "label" => "Almacén Origen", "enabled" => "1", 'position' => 2, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:label:rowid::statut=1 AND entity=__ENTITY__"),),
 		"fk_warehouse_origen" => array("type" => "sellist", "label" => "Almacén Origen", "enabled" => "1", 'position' => 2, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:ref:rowid::statut=1 AND entity=__ENTITY__"),),
 		//"fk_warehouse_destino" => array("type" => "sellist", "label" => "Almacén Destino", "enabled" => "1", 'position' => 4, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:label:rowid::statut=1"),),
