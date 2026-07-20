@@ -597,6 +597,23 @@ if ($action == 'create') {
 }
 $help_url = '';
 
+//Export CSV
+if ($action == 'export_csv_lines') {
+        $sql_export = "SELECT p.ref as prod_ref, p.label as prod_label, l.qty, l.pmp, l.amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline as l LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = l.fk_product WHERE l.fk_traspaso = ".((int) $object->id)." AND l.fk_product > 0 ORDER BY l.rowid ASC";
+        $res_export = $db->query($sql_export);
+        if ($res_export) {
+                header('Content-Type: text/csv; charset=UTF-8');
+                header('Content-Disposition: attachment; filename="traspaso_'.dol_sanitizeFileName($object->ref).'.csv"');
+                $output = fopen('php://output', 'w');
+                fputcsv($output, array('Referencia', 'Descripcion', 'Cantidad', 'Costo Promedio', 'Importe'));
+                while ($obj_export = $db->fetch_object($res_export)) {
+                        fputcsv($output, array($obj_export->prod_ref, $obj_export->prod_label, $obj_export->qty, $obj_export->pmp, $obj_export->amount));
+                }
+                fclose($output);
+                exit;
+        }
+}
+
 llxHeader('', $title, $help_url, '', 0, 0, '', '', '', 'mod-traspasomultiempresa page-card');
 
 // Example : Adding jquery code
@@ -824,26 +841,6 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		//$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, 'Validar Traspaso', '¿Está seguro de validar este traspaso? Una vez validado no podrá modificarlo ni regresarlo a borrador.', 'confirm_validate', '', 0, 1);
 		$formconfirm = $form->formconfirm($_SERVER["PHP_SELF"].'?id='.$object->id, 'Validar Traspaso', '¿Está seguro de validar este traspaso? Una vez validado no podrá modificarlo ni regresarlo a borrador.', 'confirm_validate_traspaso', '', 0, 1);
 	}
-
-	//Export CSV
-	if ($action == 'export_csv_lines') {
-		$sql_export = "SELECT p.ref as prod_ref, p.label as prod_label, l.qty, l.pmp, l.amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline as l LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = l.fk_product WHERE l.fk_traspaso = ".((int) $object->id)." AND l.fk_product > 0 ORDER BY l.rowid ASC";
-		$res_export = $db->query($sql_export);			
-		if ($res_export) {
-			while (ob_get_level()) {
-				ob_end_clean();
-			}
-			header('Content-Type: text/csv; charset=UTF-8');
-			header('Content-Disposition: attachment; filename="traspaso_'.dol_sanitizeFileName($object->ref).'.csv"');
-			$output = fopen('php://output', 'w');
-			fputcsv($output, array('Referencia', 'Descripcion', 'Cantidad', 'Costo Promedio', 'Importe'));
-			while ($obj_export = $db->fetch_object($res_export)) {
-				fputcsv($output, array($obj_export->prod_ref, $obj_export->prod_label, $obj_export->qty, $obj_export->pmp, $obj_export->amount));
-			}
-			fclose($output);
-			exit;
-		}
-	}	
 	
 	// Clone confirmation
 	if ($action == 'clone') {
