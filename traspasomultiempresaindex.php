@@ -121,7 +121,8 @@ $formfile = new FormFile($db);
 
 llxHeader("", $langs->trans("TraspasoMultiempresaArea"), '', '', 0, 0, '', '', '', 'mod-traspasomultiempresa page-index');
 
-print load_fiche_titre($langs->trans("TraspasoMultiempresaArea"), '', 'traspasomultiempresa.png@traspasomultiempresa');
+//print load_fiche_titre($langs->trans("TraspasoMultiempresaArea"), '', 'traspasomultiempresa.png@traspasomultiempresa');
+print load_fiche_titre('Traspasos validados este mes por entidad', '', '');
 
 print '<div class="fichecenter"><div class="fichethirdleft">';
 
@@ -139,7 +140,8 @@ if (isModEnabled('traspasomultiempresa') && $user->hasRight('traspasomultiempres
     print load_fiche_titre($langs->trans("TraspasosValidadosMesPorEntidad"), '', '');
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
-    print '<tr class="liste_titre"><th colspan="2">'.$langs->trans("Entidad").' / '.$langs->trans("Cantidad").'</th></tr>';
+    //print '<tr class="liste_titre"><th colspan="2">'.$langs->trans("Entidad").' / '.$langs->trans("Cantidad").'</th></tr>';
+	print '<tr class="liste_titre"><th colspan="2">Entidad / Cantidad</th></tr>';
 
     if ($resql) {
         $dataseries = array();
@@ -182,14 +184,19 @@ if (isModEnabled('traspasomultiempresa') && $user->hasRight('traspasomultiempres
     $sql .= $db->plimit(3, 0);
 
     $resql = $db->query($sql);
-    print load_fiche_titre($langs->trans("UltimosTraspasos"), '', '');
+    //print load_fiche_titre($langs->trans("UltimosTraspasos"), '', '');
+	print load_fiche_titre('Últimos traspasos', '', '');
     print '<div class="div-table-responsive-no-min">';
     print '<table class="noborder centpercent">';
     print '<tr class="liste_titre">';
-    print '<th>'.$langs->trans("Ref").'</th>';
-    print '<th>'.$langs->trans("EntidadDestino").'</th>';
-    print '<th class="right">'.$langs->trans("Fecha").'</th>';
-    print '<th class="right">'.$langs->trans("Estado").'</th>';
+    //print '<th>'.$langs->trans("Ref").'</th>';
+    //print '<th>'.$langs->trans("EntidadDestino").'</th>';
+    //print '<th class="right">'.$langs->trans("Fecha").'</th>';
+    //print '<th class="right">'.$langs->trans("Estado").'</th>';
+	print '<th>Ref</th>';
+	print '<th>Entidad Destino</th>';
+	print '<th class="right">Fecha</th>';
+	print '<th class="right">Estado</th>';
     print '</tr>';
 
     if ($resql) {
