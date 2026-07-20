@@ -3,7 +3,7 @@
  * Copyright (C) 2018-2019	Nicolas ZABOURI				<info@inovea-conseil.com>
  * Copyright (C) 2019-2024	Frédéric France				<frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Ver. 1.0.1 by FAA
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -355,7 +355,8 @@ class modTraspasoMultiempresa extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=traspasomultiempresa,fk_leftmenu=traspaso',
 			'type' => 'left',
-			'titre' => 'List Traspaso',
+			//'titre' => 'List Traspaso',
+			'titre' => 'Lista Traspasos',
 			'mainmenu' => 'traspasomultiempresa',
 			'leftmenu' => 'traspasomultiempresa_traspaso_list',
 			'url' => '/traspasomultiempresa/traspaso_list.php',
@@ -370,7 +371,8 @@ class modTraspasoMultiempresa extends DolibarrModules
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=traspasomultiempresa,fk_leftmenu=traspaso',
 			'type' => 'left',
-			'titre' => 'New Traspaso',
+			//'titre' => 'New Traspaso',
+			'titre' => 'Nuevo Traspaso',
 			'mainmenu' => 'traspasomultiempresa',
 			'leftmenu' => 'traspasomultiempresa_traspaso_new',
 			'url' => '/traspasomultiempresa/traspaso_card.php?action=create',
