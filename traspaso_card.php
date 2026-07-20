@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 /* Copyright (C) 2017       Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.16
+ * Version: 2.0.0
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -905,9 +905,25 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		}
 	*/
 	$morehtmlref .= '</div>';
+	//dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);	
+	// Resumen de totales (Total Partidas / Total Cantidad / Importe Total)
+	$sql_resumen = "SELECT COUNT(*) as nb_partidas, SUM(qty) as total_qty, SUM(amount) as total_amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline WHERE fk_traspaso = ".((int) $object->id)." AND fk_product > 0";
+	$res_resumen = $db->query($sql_resumen);
+	$nb_partidas = 0; $total_qty = 0; $total_amount = 0;
+	if ($res_resumen && ($obj_resumen = $db->fetch_object($res_resumen))) {
+		$nb_partidas = (int) $obj_resumen->nb_partidas;
+		$total_qty = (float) $obj_resumen->total_qty;
+		$total_amount = (float) $obj_resumen->total_amount;
+	}
+	$morehtmlright = '<table class="nobordernopadding right">';
+	$morehtmlright .= '<tr><td class="right paddingright">Total Partidas:</td><td class="right"><strong>'.$nb_partidas.'</strong></td></tr>';
+	$morehtmlright .= '<tr><td class="right paddingright">Total Cantidad:</td><td class="right"><strong>'.$total_qty.'</strong></td></tr>';
+	$morehtmlright .= '<tr><td class="right paddingright">Importe Total:</td><td class="right"><strong>'.price($total_amount, 0, '', 1, -1, -1, $conf->currency).'</strong></td></tr>';
+	$morehtmlright .= '</table>';
 
+	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref, '', 0, '', $morehtmlright);
 
-	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
+	// Fin Resumen de totales
 
 
 	print '<div class="fichecenter">';
@@ -954,6 +970,11 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
     } else {
         print $object->fk_warehouse_destino;
     }
+    print '</td></tr>';
+
+	// 4. Mostrar Descripción del traspaso
+    print '<tr><td>Descripción</td><td>';
+    print !empty($object->description) ? dol_escape_htmltag($object->description) : '';
     print '</td></tr>';
     // --- FIN DE CAMPOS MANUALES ---
     
@@ -1047,17 +1068,18 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
         }
     }
     
+	// Inicio muestra link a producto
+	require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
     foreach ($lineas_guardadas as $linea_guardada) {
         print '<tr class="oddeven">';
-        
-        $prod_ref = $linea_guardada->fk_product;
-        $sql_pname = "SELECT ref, label FROM ".MAIN_DB_PREFIX."product WHERE rowid = ".((int) $linea_guardada->fk_product);
-        $res_pname = $db->query($sql_pname);
-        if ($res_pname && ($obj_p = $db->fetch_object($res_pname))) {
-            $prod_ref = '['.$obj_p->ref.'] '.$obj_p->label;
+        $productLine = new Product($db);
+        if ($productLine->fetch((int) $linea_guardada->fk_product) > 0) {
+            $prod_ref = $productLine->getNomUrl(1).' - '.dol_escape_htmltag($productLine->label);
+        } else {
+            $prod_ref = $linea_guardada->fk_product;
         }
-        
-        print '<td>' . $prod_ref . '</td>'; 
+        print '<td>' . $prod_ref . '</td>'; //Fin link a producto
+
         print '<td class="right">' . $linea_guardada->qty . '</td>';
         print '<td class="right">' . price($linea_guardada->pmp, 0, '', 1, -1, -1, $conf->currency) . '</td>';
         print '<td class="right">' . price($linea_guardada->amount, 0, '', 1, -1, -1, $conf->currency) . '</td>';
@@ -1072,12 +1094,12 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		print '</td>';
     }
 
-    // 4. FILA ABSOLUTA DE TOTALES (Siempre al final)
-    print '<tr class="liste_total" style="border-top: 2px solid #ccc;">';
-    print '<td colspan="3" class="right"><strong>Total a Costo:</strong></td>';
-    print '<td class="right"><strong>' . price($object->amount, 0, '', 1, -1, -1, $conf->currency) . '</strong></td>';
-    print '<td></td>'; 
-    print '</tr>';
+    // 4. FILA ABSOLUTA DE TOTALES (Siempre al final, PERO SE QUITO PORQUE EL TOTAL MUESTRA ERROR DE CALCULO Y SE MOVIO AL ENCABEZADO)
+    //print '<tr class="liste_total" style="border-top: 2px solid #ccc;">';
+    //print '<td colspan="3" class="right"><strong>Total a Costo:</strong></td>';
+    //print '<td class="right"><strong>' . price($object->amount, 0, '', 1, -1, -1, $conf->currency) . '</strong></td>';
+    //print '<td></td>'; 
+    //print '</tr>';
 
     print '</table>'; // Cierre de la tabla
 
@@ -1242,9 +1264,30 @@ jQuery(document).ready(function() {
 				print dolGetButtonAction('', $langs->trans('ToClone'), 'default', $_SERVER['PHP_SELF'].'?id='.$object->id.(!empty($object->socid) ? '&socid='.$object->socid : '').'&action=clone&token='.newToken(), '', $permissiontoadd);
 			}
 			
+			//Export CSV
+			if ($action == 'export_csv_lines') {
+				$sql_export = "SELECT p.ref as prod_ref, p.label as prod_label, l.qty, l.pmp, l.amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline as l LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = l.fk_product WHERE l.fk_traspaso = ".((int) $object->id)." AND l.fk_product > 0 ORDER BY l.rowid ASC";
+				$res_export = $db->query($sql_export);			
+			if ($res_export) {
+				header('Content-Type: text/csv; charset=UTF-8');
+				header('Content-Disposition: attachment; filename="traspaso_'.dol_sanitizeFileName($object->ref).'.csv"');
+				$output = fopen('php://output', 'w');
+				fputcsv($output, array('Referencia', 'Descripcion', 'Cantidad', 'Costo Promedio', 'Importe'));
+				while ($obj_export = $db->fetch_object($res_export)) {
+					fputcsv($output, array($obj_export->prod_ref, $obj_export->prod_label, $obj_export->qty, $obj_export->pmp, $obj_export->amount));
+				}
+				fclose($output);
+				exit;
+				}
+			}	
+
 			// Imprimir Ticket
 			$ticketUrl = DOL_URL_ROOT.'/custom/traspasomultiempresa/tpl/tramul_ticket.tpl.php?id='.$object->id;
 			print dolGetButtonAction('', 'Imprimir Ticket', 'default', $ticketUrl, '', $permissiontoread, array('attr' => array('target' => '_blank')));
+
+			// Exportar CSV
+			$csvUrl = $_SERVER["PHP_SELF"].'?id='.$object->id.'&action=export_csv_lines&token='.newToken();
+			print dolGetButtonAction('', 'Exportar CSV', 'default', $csvUrl, '', $permissiontoread);
 
 			/*
 			// Disable / Enable
