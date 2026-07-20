@@ -149,7 +149,7 @@ if (!$sortorder) {
 	$sortorder = "ASC";
 } */
 if (!$sortfield) {
-        $sortfield = "t.date_validation"; // Default sort: most recently validated first
+        $sortfield = "t.tms"; // Default sort: most recently validated first
 }
 if (!$sortorder) {
         $sortorder = "DESC";
