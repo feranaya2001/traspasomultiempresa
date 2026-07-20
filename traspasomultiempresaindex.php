@@ -5,7 +5,7 @@
  * Copyright (C) 2015       Jean-François Ferry     <jfefe@aternatik.fr>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- *
+ * Ver. 1.0.1
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -124,6 +124,100 @@ print load_fiche_titre($langs->trans("TraspasoMultiempresaArea"), '', 'traspasom
 
 print '<div class="fichecenter"><div class="fichethirdleft">';
 
+// Grafica: Traspasos validados este mes por Entidad Destino
+if (isModEnabled('traspasomultiempresa') && $user->hasRight('traspasomultiempresa', 'traspaso', 'read')) {
+    $sql = "SELECT e.label, COUNT(*) as nb";
+    $sql .= " FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso as t";
+    $sql .= " INNER JOIN ".MAIN_DB_PREFIX."entity as e ON e.rowid = t.entidadDestino";
+    $sql .= " WHERE t.status = ".Traspaso::STATUS_VALIDATED;
+    $sql .= " AND MONTH(t.tms) = MONTH(NOW()) AND YEAR(t.tms) = YEAR(NOW())";
+    $sql .= " AND EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."entrepot as we WHERE we.rowid = t.fk_warehouse_origen AND we.entity IN (".getEntity('entrepot')."))";
+    $sql .= " GROUP BY e.label ORDER BY nb DESC";
+
+    $resql = $db->query($sql);
+    print load_fiche_titre($langs->trans("TraspasosValidadosMesPorEntidad"), '', '');
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre"><th colspan="2">'.$langs->trans("Entidad").' / '.$langs->trans("Cantidad").'</th></tr>';
+
+    if ($resql) {
+        $dataseries = array();
+        $total = 0;
+        while ($obj = $db->fetch_object($resql)) {
+            $dataseries[] = array($obj->label, (int) $obj->nb);
+            $total += (int) $obj->nb;
+        }
+        $db->free($resql);
+
+        if ($total > 0) {
+            include_once DOL_DOCUMENT_ROOT.'/core/class/dolgraph.class.php';
+            $dolgraph = new DolGraph();
+            $dolgraph->SetData($dataseries);
+            $dolgraph->setShowLegend(2);
+            $dolgraph->setShowPercent(1);
+            $dolgraph->SetType(array('pie'));
+            $dolgraph->setHeight('220');
+            $dolgraph->draw('idgraphtraspasosmes');
+            print '<tr><td colspan="2">'.$dolgraph->show(0).'</td></tr>';
+        } else {
+            print '<tr><td colspan="2" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
+        }
+    } else {
+        dol_print_error($db);
+    }
+    print '</table>';
+    print '</div>';
+}
+
+print '</div><div class="fichetwothirdright">';
+
+// Ultimos 3 traspasos
+if (isModEnabled('traspasomultiempresa') && $user->hasRight('traspasomultiempresa', 'traspaso', 'read')) {
+    $sql = "SELECT t.rowid, t.ref, t.status, t.tms, e.label as entidad_label";
+    $sql .= " FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspaso as t";
+    $sql .= " LEFT JOIN ".MAIN_DB_PREFIX."entity as e ON e.rowid = t.entidadDestino";
+    $sql .= " WHERE EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."entrepot as we WHERE we.rowid = t.fk_warehouse_origen AND we.entity IN (".getEntity('entrepot')."))";
+    $sql .= " ORDER BY t.tms DESC";
+    $sql .= $db->plimit(3, 0);
+
+    $resql = $db->query($sql);
+    print load_fiche_titre($langs->trans("UltimosTraspasos"), '', '');
+    print '<div class="div-table-responsive-no-min">';
+    print '<table class="noborder centpercent">';
+    print '<tr class="liste_titre">';
+    print '<th>'.$langs->trans("Ref").'</th>';
+    print '<th>'.$langs->trans("EntidadDestino").'</th>';
+    print '<th class="right">'.$langs->trans("Fecha").'</th>';
+    print '<th class="right">'.$langs->trans("Estado").'</th>';
+    print '</tr>';
+
+    if ($resql) {
+        $num = $db->num_rows($resql);
+        if ($num) {
+            $objtraspaso = new Traspaso($db);
+            while ($objp = $db->fetch_object($resql)) {
+                $objtraspaso->id = $objp->rowid;
+                $objtraspaso->ref = $objp->ref;
+                $objtraspaso->status = $objp->status;
+                print '<tr class="oddeven">';
+                print '<td class="nowrap">'.$objtraspaso->getNomUrl(1).'</td>';
+                print '<td>'.dol_escape_htmltag($objp->entidad_label).'</td>';
+                print '<td class="right nowrap">'.dol_print_date($db->jdate($objp->tms), 'dayhour').'</td>';
+                print '<td class="right">'.$objtraspaso->LibStatut($objp->status, 5).'</td>';
+                print '</tr>';
+            }
+        } else {
+            print '<tr><td colspan="4" class="opacitymedium">'.$langs->trans("NoRecordFound").'</td></tr>';
+        }
+        $db->free($resql);
+    } else {
+        dol_print_error($db);
+    }
+    print '</table>';
+    print '</div>';
+}
+
+print '</div></div>';
 
 /* BEGIN MODULEBUILDER DRAFT MYOBJECT
 // Draft MyObject
@@ -197,7 +291,7 @@ if (isModEnabled('traspasomultiempresa') && $user->hasRight('traspasomultiempres
 END MODULEBUILDER DRAFT MYOBJECT */
 
 
-print '</div><div class="fichetwothirdright">';
+//print '</div><div class="fichetwothirdright">';
 
 
 /* BEGIN MODULEBUILDER LASTMODIFIED MYOBJECT
