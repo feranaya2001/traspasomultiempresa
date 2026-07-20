@@ -444,6 +444,61 @@ if (!getDolGlobalInt('MAIN_DISABLE_FULL_SCANLIST')) {
 	$db->free($resql);
 }
 
+// Export to CSV (all filtered records, no pagination limit)
+if ($action == 'export_csv') {
+        $sql_export = $sql; // sql already has WHERE filters + ORDER BY, no LIMIT yet
+        $resql_export = $db->query($sql_export);
+        if ($resql_export) {
+                header('Content-Type: text/csv; charset=UTF-8');
+                header('Content-Disposition: attachment; filename="traspasos_'.dol_print_date(dol_now(), 'dayhourlog').'.csv"');
+                $out = fopen('php://output', 'w');
+                fputcsv($out, array('Almacen Origen', 'Entidad Destino', 'Almacen Destino', 'Ref', 'Importe', 'Cantidad', 'Descripcion', 'Fecha Validacion', 'Usuario Validador', 'Estado'), ',', '"');
+                while ($obj_export = $db->fetch_object($resql_export)) {
+                        $wh_origen = '';
+                        $res = $db->query("SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj_export->fk_warehouse_origen);
+                        if ($res && ($r = $db->fetch_object($res))) {
+                                $wh_origen = $r->ref;
+                        }
+                        $wh_destino = '';
+                        $res = $db->query("SELECT ref FROM ".MAIN_DB_PREFIX."entrepot WHERE rowid = ".(int)$obj_export->fk_warehouse_destino);
+                        if ($res && ($r = $db->fetch_object($res))) {
+                                $wh_destino = $r->ref;
+                        }
+                        $entidad_destino = '';
+                        $res = $db->query("SELECT label FROM ".MAIN_DB_PREFIX."entity WHERE rowid = ".(int)$obj_export->entidadDestino);
+                        if ($res && ($r = $db->fetch_object($res))) {
+                                $entidad_destino = $r->label;
+                        }
+                        $usuario_validador = '';
+                        if (!empty($obj_export->fk_user_modif)) {
+                                $res = $db->query("SELECT firstname, lastname FROM ".MAIN_DB_PREFIX."user WHERE rowid = ".(int)$obj_export->fk_user_modif);
+                                if ($res && ($r = $db->fetch_object($res))) {
+                                        $usuario_validador = trim($r->firstname.' '.$r->lastname);
+                                }
+                        }
+                        $tmp_obj_status = new Traspaso($db);
+                        $estado_txt = $tmp_obj_status->LibStatut($obj_export->status, 1);
+
+                        fputcsv($out, array(
+                                $wh_origen,
+                                $entidad_destino,
+                                $wh_destino,
+                                $obj_export->ref,
+                                price2num($obj_export->amount, 2),
+                                price2num($obj_export->qty, 2),
+                                $obj_export->description,
+                                dol_print_date($db->jdate($obj_export->tms), 'dayhour'),
+                                $usuario_validador,
+                                $estado_txt,
+                        ), ',', '"');
+                }
+                fclose($out);
+                exit;
+        } else {
+                dol_print_error($db);
+        }
+}
+
 // Complete request and execute it with limit
 $sql .= $db->order($sortfield, $sortorder);
 if ($limit) {
@@ -457,7 +512,6 @@ if (!$resql) {
 }
 
 $num = $db->num_rows($resql);
-
 
 // Direct jump if only one record found
 if ($num == 1 && getDolGlobalInt('MAIN_SEARCH_DIRECT_OPEN_IF_ONLY_ONE') && $search_all && !$page) {
@@ -544,6 +598,8 @@ $newcardbutton .= dolGetButtonTitle($langs->trans('ViewList'), '', 'fa fa-bars i
 $newcardbutton .= dolGetButtonTitle($langs->trans('ViewKanban'), '', 'fa fa-th-list imgforviewmode', $_SERVER["PHP_SELF"].'?mode=kanban'.preg_replace('/(&|\?)*(mode|groupby)=[^&]+/', '', $param), '', ($mode == 'kanban' ? 2 : 1), array('morecss' => 'reposition'));
 $newcardbutton .= dolGetButtonTitleSeparator();
 $newcardbutton .= dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', dol_buildpath('/traspasomultiempresa/traspaso_card.php', 1).'?action=create&backtopage='.urlencode($_SERVER['PHP_SELF']), '', $permissiontoadd);
+$newcardbutton .= dolGetButtonTitleSeparator();
+$newcardbutton .= dolGetButtonTitle($langs->trans('Export'), '', 'fa fa-file-csv-o', $_SERVER["PHP_SELF"].'?'.$param.'&action=export_csv&token='.newToken(), '', 1);
 
 print_barre_liste($title, $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, $massactionbutton, $num, $nbtotalofrecords, $object->picto, 0, $newcardbutton, '', $limit, 0, 0, 1);
 
