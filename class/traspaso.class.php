@@ -140,14 +140,13 @@ class Traspaso extends CommonObject
 		"last_main_doc" => array("type" => "varchar(255)", "label" => "LastMainDoc", "enabled" => "1", 'position' => 600, 'notnull' => 0, "visible" => "0",),
 		"import_key" => array("type" => "varchar(14)", "label" => "ImportId", "enabled" => "1", 'position' => 1000, 'notnull' => -1, "visible" => "-2",),
 		"model_pdf" => array("type" => "varchar(255)", "label" => "Model pdf", "enabled" => "1", 'position' => 1010, 'notnull' => -1, "visible" => "0",),
-		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "1", "index" => "1", "arrayofkeyval" => array("0" => "Borrador", "1" => "Validado", "9" => "Cancelado"), "validate" => "1",),
-		//"entidadDestino" => array("type" => "sellist", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entity:label:rowid::rowid>0"),),
+		"status" => array("type" => "integer", "label" => "Status", "enabled" => "1", 'position' => 2000, 'notnull' => 1, "visible" => "1", "index" => "1", "arrayofkeyval" => array("0" => "Borrador", "1" => "Validado", "9" => "Cancelado"), "validate" => "1",),		
 		//"entidadDestino" => array("type" => "sellist", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entity:label:rowid::rowid>0"),),
 		"entidadDestino" => array("type" => "sellist:entity:label:rowid::active=1", "label" => "Entidad Destino", "enabled" => "1", 'position' => 3, 'notnull' => 1, "visible" => "1",),
 		//"fk_warehouse_origen" => array("type" => "sellist", "label" => "Almacén Origen", "enabled" => "1", 'position' => 2, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:label:rowid::statut=1 AND entity=__ENTITY__"),),
-		"fk_warehouse_origen" => array("type" => "sellist", "label" => "Almacén Origen", "enabled" => "1", 'position' => 2, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:ref:rowid::statut=1 AND entity=__ENTITY__"),),
-		//"fk_warehouse_destino" => array("type" => "sellist", "label" => "Almacén Destino", "enabled" => "1", 'position' => 4, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:label:rowid::statut=1"),),
-		"fk_warehouse_destino" => array("type" => "sellist", "label" => "Almacén Destino", "enabled" => "1", 'position' => 4, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:ref:rowid::statut=1"),),
+		"fk_warehouse_origen" => array("type" => "sellist", "label" => "Almacén Origen", "enabled" => "1", 'position' => 2, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:ref:rowid::statut=1 AND entity=__ENTITY__"),),		
+		//"fk_warehouse_destino" => array("type" => "sellist", "label" => "Almacén Destino", "enabled" => "1", 'position' => 4, 'notnull' => 1, "visible" => "1", "arrayofkeyval" => array("0" => "entrepot:ref:rowid::statut=1"),),
+		"fk_warehouse_destino" => array("type" => "sellist:entrepot:ref:rowid::statut=1", "label" => "Almacén Destino", "enabled" => "1", 'position' => 4, 'notnull' => 1, "visible" => "1",),
 	);
 	public $rowid;
 	public $ref;
