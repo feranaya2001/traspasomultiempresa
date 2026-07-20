@@ -616,8 +616,8 @@ foreach ($object->fields as $key => $val) {
 	}
 	
 	if (!empty($arrayfields['t.'.$key]['checked'])) {
-		print '<td class="liste_titre'.($cssforfield ? ' '.$cssforfield : '').($key == 'status' ? ' parentonrightofpage' : '').'">';
-		if ($key == 'fk_warehouse_origen') {
+		print '<td class="liste_titre'.($cssforfield ? ' '.$cssforfield : '').($key == 'status' ? ' parentonrightofpage' : '').'">';		
+		if (in_array($key, array('fk_warehouse_origen', 'amount', 'qty'))) {
             // No filter for this column (removed per request)
         } elseif (!empty($val['arrayofkeyval']) && is_array($val['arrayofkeyval'])) {		
 			if (empty($val['searchmulti'])) {
