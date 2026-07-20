@@ -599,7 +599,8 @@ $newcardbutton .= dolGetButtonTitle($langs->trans('ViewKanban'), '', 'fa fa-th-l
 $newcardbutton .= dolGetButtonTitleSeparator();
 $newcardbutton .= dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', dol_buildpath('/traspasomultiempresa/traspaso_card.php', 1).'?action=create&backtopage='.urlencode($_SERVER['PHP_SELF']), '', $permissiontoadd);
 $newcardbutton .= dolGetButtonTitleSeparator();
-$newcardbutton .= dolGetButtonTitle($langs->trans('Export'), '', 'fa fa-file-csv-o', $_SERVER["PHP_SELF"].'?'.$param.'&action=export_csv&token='.newToken(), '', 1);
+//$newcardbutton .= dolGetButtonTitle($langs->trans('Export'), '', 'fa fa-file-csv-o', $_SERVER["PHP_SELF"].'?'.$param.'&action=export_csv&token='.newToken(), '', 1);
+$newcardbutton .= dolGetButtonAction('', 'Exportar CSV', 'default', $_SERVER["PHP_SELF"].'?'.$param.'&action=export_csv&token='.newToken(), '', 1);
 
 print_barre_liste($title, $page, $_SERVER["PHP_SELF"], $param, $sortfield, $sortorder, $massactionbutton, $num, $nbtotalofrecords, $object->picto, 0, $newcardbutton, '', $limit, 0, 0, 1);
 
