@@ -62,6 +62,7 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.formfile.class.php';
+require_once DOL_DOCUMENT_ROOT.'/custom/traspasomultiempresa/class/traspaso.class.php';
 
 /**
  * @var Conf $conf
