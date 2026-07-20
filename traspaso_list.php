@@ -2,7 +2,7 @@
 /* Copyright (C) 2007-2017  Laurent Destailleur     <eldy@users.sourceforge.net>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2026		Fernando Anaya Alba			<consultor.sistemas@ajigsa.com>
- * Version: 1.0.3
+ * Version: 2.0.0
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -141,12 +141,18 @@ $extrafields->fetch_name_optionals_label($object->table_element);
 $search_array_options = $extrafields->getOptionalsFromPost($object->table_element, '', 'search_');
 
 // Default sort order (if not yet defined by previous GETPOST)
-if (!$sortfield) {
+/*if (!$sortfield) {
 	reset($object->fields);					// Reset is required to avoid key() to return null.
 	$sortfield = "t.".key($object->fields); // Set here default search field. By default 1st field in definition.
 }
 if (!$sortorder) {
 	$sortorder = "ASC";
+} */
+if (!$sortfield) {
+        $sortfield = "t.date_validation"; // Default sort: most recently validated first
+}
+if (!$sortorder) {
+        $sortorder = "DESC";
 }
 
 // Initialize array of search criteria
