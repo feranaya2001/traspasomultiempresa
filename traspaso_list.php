@@ -625,8 +625,20 @@ foreach ($object->fields as $key => $val) {
 			} else {
 				print $form->multiselectarray('search_'.$key, $val['arrayofkeyval'], (isset($search[$key]) ? $search[$key] : ''), 0, 0, 'maxwidth100'.($key == 'status' ? ' search_status width100 onrightofpage' : ''), 1);
 			}
-		} elseif ((strpos($val['type'], 'integer:') === 0) || (strpos($val['type'], 'sellist:') === 0)) {
-			print $object->showInputField($val, $key, (isset($search[$key]) ? $search[$key] : ''), '', '', 'search_', $cssforfield.' maxwidth250', 1);
+		//} elseif ((strpos($val['type'], 'integer:') === 0) || (strpos($val['type'], 'sellist:') === 0)) {
+			//print $object->showInputField($val, $key, (isset($search[$key]) ? $search[$key] : ''), '', '', 'search_', $cssforfield.' maxwidth250', 1);
+		} elseif ($key == 'fk_user_modif') {
+            $sql_users = "SELECT rowid, firstname, lastname FROM ".MAIN_DB_PREFIX."user WHERE rowid IN (SELECT DISTINCT fk_user_modif FROM ".MAIN_DB_PREFIX.$object->table_element." WHERE fk_user_modif IS NOT NULL) ORDER BY firstname, lastname";
+            $res_users = $db->query($sql_users);
+            $arrayusers = array('' => '&nbsp;');
+            if ($res_users) {
+                while ($obj_u = $db->fetch_object($res_users)) {
+                    $arrayusers[$obj_u->rowid] = trim($obj_u->firstname.' '.$obj_u->lastname);
+                }
+            }
+            print $form->selectarray('search_'.$key, $arrayusers, (isset($search[$key]) ? $search[$key] : ''), 0, 0, 0, '', 1, 0, 0, '', 'maxwidth150', 1);
+            } elseif ((strpos($val['type'], 'integer:') === 0) || (strpos($val['type'], 'sellist:') === 0)) {
+                        print $object->showInputField($val, $key, (isset($search[$key]) ? $search[$key] : ''), '', '', 'search_', $cssforfield.' maxwidth250', 1);
 		} elseif (preg_match('/^(date|timestamp|datetime)/', $val['type'])) {
 			print '<div class="nowrap">';
 			print $form->selectDate($search[$key.'_dtstart'] ? $search[$key.'_dtstart'] : '', "search_".$key."_dtstart", 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('From'));
