@@ -827,9 +827,12 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 
 	//Export CSV
 	if ($action == 'export_csv_lines') {
-				$sql_export = "SELECT p.ref as prod_ref, p.label as prod_label, l.qty, l.pmp, l.amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline as l LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = l.fk_product WHERE l.fk_traspaso = ".((int) $object->id)." AND l.fk_product > 0 ORDER BY l.rowid ASC";
-				$res_export = $db->query($sql_export);			
+		$sql_export = "SELECT p.ref as prod_ref, p.label as prod_label, l.qty, l.pmp, l.amount FROM ".MAIN_DB_PREFIX."traspasomultiempresa_traspasoline as l LEFT JOIN ".MAIN_DB_PREFIX."product as p ON p.rowid = l.fk_product WHERE l.fk_traspaso = ".((int) $object->id)." AND l.fk_product > 0 ORDER BY l.rowid ASC";
+		$res_export = $db->query($sql_export);			
 		if ($res_export) {
+			while (ob_get_level()) {
+				ob_end_clean();
+			}
 			header('Content-Type: text/csv; charset=UTF-8');
 			header('Content-Disposition: attachment; filename="traspaso_'.dol_sanitizeFileName($object->ref).'.csv"');
 			$output = fopen('php://output', 'w');
@@ -933,14 +936,14 @@ if ($object->id > 0 && (empty($action) || ($action != 'edit' && $action != 'crea
 		$total_amount = (float) $obj_resumen->total_amount;
 	}
 	//$morehtmlright = '<table class="nobordernopadding right">';
-	$morehtmlright = '<table class="nobordernopadding right" style="margin-top: 45px;">';
-	$morehtmlright .= '<tr><td class="right paddingright">Total Partidas:</td><td class="right"><strong>'.$nb_partidas.'</strong></td></tr>';
-	$morehtmlright .= '<tr><td class="right paddingright">Total Cantidad:</td><td class="right"><strong>'.$total_qty.'</strong></td></tr>';
-	$morehtmlright .= '<tr><td class="right paddingright">Importe Total:</td><td class="right"><strong>'.price($total_amount, 0, '', 1, -1, -1, $conf->currency).'</strong></td></tr>';
-	$morehtmlright .= '</table>';
+	$morehtmlstatus = '<style>.statusref{display:flex;flex-direction:column;align-items:flex-end;}.statusref .traspaso-totales-block{order:2;margin-top:5px;}</style>';
+	$morehtmlstatus .= '<div class="traspaso-totales-block"><table class="nobordernopadding right">';
+	$morehtmlstatus .= '<tr><td class="right paddingright">Total Partidas:</td><td class="right"><strong>'.$nb_partidas.'</strong></td></tr>';
+	$morehtmlstatus .= '<tr><td class="right paddingright">Total Cantidad:</td><td class="right"><strong>'.$total_qty.'</strong></td></tr>';
+	$morehtmlstatus .= '<tr><td class="right paddingright">Importe Total:</td><td class="right"><strong>'.price($total_amount, 0, '', 1, -1, -1, $conf->currency).'</strong></td></tr>';
+	$morehtmlstatus .= '</table></div>';
 
-	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref, '', 0, '', $morehtmlright);
-
+	dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref, '', 0, '', $morehtmlstatus);
 	// Fin Resumen de totales
 
 
